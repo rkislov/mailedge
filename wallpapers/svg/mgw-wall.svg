@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3840 2160" width="3840" height="2160" role="img" aria-label="mgw Mail Edge wallpaper">
+  <defs>
+    <linearGradient id="concrete" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a39e94"/>
+      <stop offset="45%" stop-color="#7d7971"/>
+      <stop offset="100%" stop-color="#5c5953"/>
+    </linearGradient>
+    <radialGradient id="spot1" cx="20%" cy="30%" r="55%">
+      <stop offset="0%" stop-color="#b0aaa0" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#b0aaa0" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="spot2" cx="80%" cy="70%" r="50%">
+      <stop offset="0%" stop-color="#8a857c" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#8a857c" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="sprayRed" cx="88%" cy="22%" r="22%">
+      <stop offset="0%" stop-color="#c43c2c" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#c43c2c" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="sprayInk" cx="12%" cy="78%" r="18%">
+      <stop offset="0%" stop-color="#0c0c0c" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#0c0c0c" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="brick" width="64" height="28" patternUnits="userSpaceOnUse">
+      <path d="M31 0h2v28h-2zM0 13h64v2H0z" fill="#000" opacity="0.28"/>
+    </pattern>
+  </defs>
+
+  <rect width="3840" height="2160" fill="url(#concrete)"/>
+  <rect width="3840" height="2160" fill="url(#spot1)"/>
+  <rect width="3840" height="2160" fill="url(#spot2)"/>
+  <rect width="3840" height="2160" fill="url(#brick)" opacity="0.22"/>
+  <rect width="3840" height="2160" fill="url(#sprayRed)"/>
+  <rect width="3840" height="2160" fill="url(#sprayInk)"/>
+
+  <path d="M0 380 L900 320 L920 620 L40 700 Z" fill="#141412" opacity="0.42"/>
+  <path d="M2400 1350 L3840 1280 L3840 1580 L2380 1620 Z" fill="#e8e2d6" opacity="0.5"/>
+  <path d="M3000 1700 L3840 1680 L3840 1860 L2980 1880 Z" fill="#c43c2c" opacity="0.18"/>
+
+  <text x="200" y="620" font-family="Impact, Haettenschweiler, Arial Black, sans-serif"
+        font-size="520" letter-spacing="24" fill="#000" opacity="0.08">MGW</text>
+
+  <text x="220" y="780" font-family="Impact, Haettenschweiler, Arial Black, sans-serif"
+        font-size="72" letter-spacing="28" fill="#c43c2c">MAIL EDGE</text>
+  <text x="200" y="1180" font-family="Impact, Haettenschweiler, Arial Black, sans-serif"
+        font-size="420" letter-spacing="16" fill="#0c0c0c">MGW</text>
+  <rect x="220" y="1240" width="780" height="56" fill="#e8e2d6" opacity="0.85" transform="rotate(-1.2 220 1240)"/>
+  <text x="240" y="1278" font-family="Menlo, Consolas, monospace" font-size="28" fill="#2a2a28">
+    mail gateway &#183; street-grade filtration
+  </text>
+
+  <g fill="#0a0a0a" opacity="0.92" transform="translate(280,1480) scale(2.2)">
+    <path d="M0 80 c20-40 55-70 95-78 12-2 18 8 14 18-18 42-8 78 28 110 8 7 2 20-8 18-55-10-95-28-129-68z"/>
+    <ellipse cx="70" cy="5" rx="38" ry="22"/>
+    <path d="M40 -10 c-8-22-2-40 18-52 6-4 12 2 10 8-4 14 2 24 14 28 4 2 4 10-2 10h-28c-8 0-12-2-12 6z"/>
+    <circle cx="88" cy="-2" r="3" fill="#e8e4dc"/>
+    <path d="M110 20 h70 v48 h-70z"/>
+    <path d="M110 20 l35 26 35-26" fill="#c43c2c" opacity="0.9"/>
+  </g>
+
+  <g fill="#0a0a0a" opacity="0.55">
+    <circle cx="2620" cy="380" r="36"/>
+    <path d="M2620 400 c4 120 0 240 8 360 2 24-16 28-20 4-12-120-8-240-12-352z"/>
+    <circle cx="2740" cy="440" r="20"/>
+    <path d="M2740 456 c2 80 0 160 4 220"/>
+  </g>
+
+  <g fill="#111" opacity="0.28" transform="translate(3200,220)">
+    <rect width="12" height="140"/>
+    <rect x="24" width="6" height="140"/>
+    <rect x="40" width="20" height="140"/>
+    <rect x="72" width="6" height="140"/>
+    <rect x="88" width="14" height="140"/>
+    <rect x="112" width="6" height="140"/>
+    <rect x="128" width="24" height="140"/>
+  </g>
+</svg>
