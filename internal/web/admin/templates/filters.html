@@ -15,7 +15,7 @@
     <main class="admin-main">
       {{if .Flash}}<p class="flash flash--ok">{{.Flash}}</p>{{end}}
       {{if .Error}}<p class="flash flash--err">{{.Error}}</p>{{end}}
-      <header class="admin-head"><h1>Filters</h1><p>DNSBL · antispam scoring</p></header>
+      <header class="admin-head"><h1>Filters</h1><p>DNSBL · antispam · ICAP AV · sandbox</p></header>
 
       <form method="post" class="stack-form stencil-panel">
         <input type="hidden" name="csrf" value="{{.CSRF}}">
@@ -31,6 +31,68 @@
 {{end}}</textarea>
         </label>
         <button type="submit">Сохранить DNSBL</button>
+      </form>
+
+      <form method="post" class="stack-form stencil-panel">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <input type="hidden" name="action" value="av">
+        <h2 class="stencil-panel__h">AV / ICAP</h2>
+        <label class="check"><input type="checkbox" name="av_enabled" {{if .Cfg.Filters.AV.Enabled}}checked{{end}}> enabled</label>
+        <label>timeout <input name="av_timeout" value="{{.Cfg.Filters.AV.Timeout}}"></label>
+        <label>on unavailable
+          <select name="av_on_unavailable">
+            <option value="pass" {{if eq .Cfg.Filters.AV.OnUnavailable "pass"}}selected{{end}}>pass</option>
+            <option value="quarantine" {{if eq .Cfg.Filters.AV.OnUnavailable "quarantine"}}selected{{end}}>quarantine</option>
+            <option value="reject" {{if eq .Cfg.Filters.AV.OnUnavailable "reject"}}selected{{end}}>reject</option>
+          </select>
+        </label>
+        <label>on infected
+          <select name="av_on_infected">
+            <option value="reject" {{if eq .Cfg.Filters.AV.OnInfected "reject"}}selected{{end}}>reject</option>
+            <option value="quarantine" {{if eq .Cfg.Filters.AV.OnInfected "quarantine"}}selected{{end}}>quarantine</option>
+            <option value="tag" {{if eq .Cfg.Filters.AV.OnInfected "tag"}}selected{{end}}>tag</option>
+          </select>
+        </label>
+        <label>servers (addr service [tls], по строке)
+          <textarea name="av_servers" rows="3" placeholder="127.0.0.1:1344 avscan">{{range .Cfg.Filters.AV.Servers}}{{.Addr}} {{.Service}}{{if .TLS}} tls{{end}}
+{{end}}</textarea>
+        </label>
+        <button type="submit">Сохранить AV</button>
+      </form>
+
+      <form method="post" class="stack-form stencil-panel">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <input type="hidden" name="action" value="sandbox">
+        <h2 class="stencil-panel__h">Sandbox</h2>
+        <label class="check"><input type="checkbox" name="sandbox_enabled" {{if .Cfg.Filters.Sandbox.Enabled}}checked{{end}}> enabled</label>
+        <label>URL <input name="sandbox_url" value="{{.Cfg.Filters.Sandbox.URL}}" placeholder="https://sandbox/api/v1/submit"></label>
+        <label>API key <input name="sandbox_api_key" value="{{.Cfg.Filters.Sandbox.APIKey}}" type="password" autocomplete="off"></label>
+        <label>timeout <input name="sandbox_timeout" value="{{.Cfg.Filters.Sandbox.Timeout}}"></label>
+        <label>cache TTL <input name="sandbox_cache_ttl" value="{{.Cfg.Filters.Sandbox.CacheTTL}}"></label>
+        <label>max bytes <input name="sandbox_max_bytes" type="number" value="{{.Cfg.Filters.Sandbox.MaxBytes}}"></label>
+        <label class="check"><input type="checkbox" name="sandbox_attachments_only" {{if .Cfg.Filters.Sandbox.AttachmentsOnly}}checked{{end}}> attachments only</label>
+        <label>on unavailable
+          <select name="sandbox_on_unavailable">
+            <option value="pass" {{if eq .Cfg.Filters.Sandbox.OnUnavailable "pass"}}selected{{end}}>pass</option>
+            <option value="quarantine" {{if eq .Cfg.Filters.Sandbox.OnUnavailable "quarantine"}}selected{{end}}>quarantine</option>
+            <option value="reject" {{if eq .Cfg.Filters.Sandbox.OnUnavailable "reject"}}selected{{end}}>reject</option>
+          </select>
+        </label>
+        <label>on malicious
+          <select name="sandbox_on_malicious">
+            <option value="reject" {{if eq .Cfg.Filters.Sandbox.OnMalicious "reject"}}selected{{end}}>reject</option>
+            <option value="quarantine" {{if eq .Cfg.Filters.Sandbox.OnMalicious "quarantine"}}selected{{end}}>quarantine</option>
+            <option value="tag" {{if eq .Cfg.Filters.Sandbox.OnMalicious "tag"}}selected{{end}}>tag</option>
+          </select>
+        </label>
+        <label>on suspicious
+          <select name="sandbox_on_suspicious">
+            <option value="tag" {{if eq .Cfg.Filters.Sandbox.OnSuspicious "tag"}}selected{{end}}>tag</option>
+            <option value="quarantine" {{if eq .Cfg.Filters.Sandbox.OnSuspicious "quarantine"}}selected{{end}}>quarantine</option>
+            <option value="pass" {{if eq .Cfg.Filters.Sandbox.OnSuspicious "pass"}}selected{{end}}>pass</option>
+          </select>
+        </label>
+        <button type="submit">Сохранить sandbox</button>
       </form>
 
       <form method="post" class="stack-form stencil-panel">
