@@ -64,3 +64,40 @@ logging:
 
 policy:
   default_action: accept
+  # rules:
+  #   - id: block-evil
+  #     enabled: true
+  #     priority: 10
+  #     action: reject
+  #     reason: blocked sender
+  #     match:
+  #       from: "*@evil.example"
+  #       remote_ip: "1.2.3.0/24"
+  rules: []
+
+filters:
+  dnsbl:
+    enabled: false
+    cache_ttl: 1h
+    whitelist:
+      - 127.0.0.0/8
+      - 10.0.0.0/8
+      - 192.168.0.0/16
+    zones: []
+    # zones:
+    #   - zone: zen.spamhaus.org
+    #     weight: 10
+    #     action: reject   # score | reject | quarantine | tag
+  antispam:
+    enabled: true
+    tag_score: 5
+    quarantine_score: 10
+    reject_score: 15
+    rules:
+      - id: subject_pharma
+        weight: 5
+        header: Subject
+        regex: "(?i)\\b(viagra|cialis|levitra)\\b"
+      - id: body_casino
+        weight: 3
+        regex: "(?i)\\b(online casino|poker freeroll)\\b"

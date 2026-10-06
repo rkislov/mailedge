@@ -31,7 +31,7 @@ var serverStartCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		app, err := server.New(cfg)
+		app, err := server.New(cfg, cfgFile)
 		if err != nil {
 			return err
 		}

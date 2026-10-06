@@ -50,7 +50,7 @@ func (c *Chain) Init(cfg *config.Config) error {
 
 // Process runs the chain.
 func (c *Chain) Process(ctx context.Context, msg *mailmsg.Message, data []byte) (*mailmsg.Result, error) {
-	final := &mailmsg.Result{Action: "accept"}
+	final := &mailmsg.Result{Action: "accept", Details: map[string]string{}}
 	for _, f := range c.filters {
 		res, err := f.Process(ctx, msg, data)
 		if err != nil {
@@ -62,12 +62,27 @@ func (c *Chain) Process(ctx context.Context, msg *mailmsg.Message, data []byte) 
 		if len(res.Tags) > 0 {
 			final.Tags = append(final.Tags, res.Tags...)
 		}
-		if res.Action != "" && res.Action != "accept" && res.Action != "tag" {
-			return res, nil
+		if res.Score != 0 {
+			final.Score += res.Score
 		}
-		if res.Action == "tag" {
-			final.Action = "accept"
+		if res.Reason != "" {
+			final.Reason = res.Reason
 		}
+		for k, v := range res.Details {
+			final.Details[k] = v
+		}
+		act := res.Action
+		if act == "" || act == "accept" {
+			continue
+		}
+		if act == "tag" {
+			if final.Action == "accept" {
+				final.Action = "tag"
+			}
+			continue
+		}
+		final.Action = act
+		return final, nil
 	}
 	return final, nil
 }

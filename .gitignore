@@ -1,5 +1,6 @@
 # Ignore
 /mgw
+/dist/
 /data/
 *.db
 config.yaml

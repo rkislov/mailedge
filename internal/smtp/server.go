@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,17 +19,26 @@ import (
 	"github.com/rkislov/mailedge/internal/metrics"
 	mimeutil "github.com/rkislov/mailedge/internal/mime"
 	"github.com/rkislov/mailedge/internal/policy"
+	"github.com/rkislov/mailedge/internal/quarantine"
 	"github.com/rkislov/mailedge/internal/queue"
 )
 
 // Backend implements go-smtp Backend.
 type Backend struct {
-	cfg     *config.Config
-	spool   *queue.Spool
-	policy  *policy.Engine
-	filters *filter.Chain
-	metrics *metrics.Registry
-	log     *slog.Logger
+	cfg         *config.Config
+	spool       *queue.Spool
+	policy      *policy.Engine
+	filters     *filter.Chain
+	metrics     *metrics.Registry
+	log         *slog.Logger
+	domains     DomainService
+	quarantine  *quarantine.Store
+}
+
+// DomainService is optional domain/alias lookup.
+type DomainService interface {
+	AcceptsDomain(ctx context.Context, domain string) (bool, error)
+	ExpandAlias(ctx context.Context, address string) ([]string, bool, error)
 }
 
 // NewBackend constructs the SMTP backend.
@@ -38,6 +48,12 @@ func NewBackend(cfg *config.Config, spool *queue.Spool, pol *policy.Engine, chai
 	}
 	return &Backend{cfg: cfg, spool: spool, policy: pol, filters: chain, metrics: met, log: log}
 }
+
+// SetDomains attaches domain/alias service.
+func (b *Backend) SetDomains(d DomainService) { b.domains = d }
+
+// SetQuarantine attaches quarantine store.
+func (b *Backend) SetQuarantine(q *quarantine.Store) { b.quarantine = q }
 
 func (b *Backend) NewSession(c *smtp.Conn) (smtp.Session, error) {
 	remote := ""
@@ -70,6 +86,23 @@ func (s *session) Rcpt(to string, _ *smtp.RcptOptions) error {
 		s.backend.metrics.Rejected.Add(1)
 		return &smtp.SMTPError{Code: 452, EnhancedCode: smtp.EnhancedCode{4, 5, 3}, Message: "too many recipients"}
 	}
+	if s.backend.domains != nil {
+		dom := domainOfAddr(to)
+		ok, err := s.backend.domains.AcceptsDomain(context.Background(), dom)
+		if err != nil {
+			return &smtp.SMTPError{Code: 451, EnhancedCode: smtp.EnhancedCode{4, 3, 0}, Message: "temporary local error"}
+		}
+		// Allow if alias exists even when domain list is non-empty and domain not listed.
+		if !ok {
+			if expanded, found, _ := s.backend.domains.ExpandAlias(context.Background(), normalizeAddr(to)); found && len(expanded) > 0 {
+				ok = true
+			}
+		}
+		if !ok {
+			s.backend.metrics.Rejected.Add(1)
+			return &smtp.SMTPError{Code: 550, EnhancedCode: smtp.EnhancedCode{5, 1, 1}, Message: "relay not permitted for domain"}
+		}
+	}
 	s.to = append(s.to, to)
 	return nil
 }
@@ -93,9 +126,21 @@ func (s *session) Data(r io.Reader) error {
 	}
 
 	parsed, _ := mimeutil.Parse(data)
+	recipients := append([]string{}, s.to...)
+	if s.backend.domains != nil {
+		var expanded []string
+		for _, rcpt := range recipients {
+			if dests, ok, _ := s.backend.domains.ExpandAlias(context.Background(), normalizeAddr(rcpt)); ok {
+				expanded = append(expanded, dests...)
+			} else {
+				expanded = append(expanded, rcpt)
+			}
+		}
+		recipients = expanded
+	}
 	msg := &mailmsg.Message{
 		From:       s.from,
-		To:         append([]string{}, s.to...),
+		To:         recipients,
 		RemoteIP:   s.remoteIP,
 		Helo:       s.helo,
 		ReceivedAt: time.Now().UTC(),
@@ -109,14 +154,8 @@ func (s *session) Data(r io.Reader) error {
 	if err != nil {
 		return err
 	}
-	if polRes != nil && polRes.Action == "reject" {
-		s.backend.metrics.Rejected.Add(1)
-		return &smtp.SMTPError{Code: 550, EnhancedCode: smtp.EnhancedCode{5, 7, 1}, Message: "rejected by policy"}
-	}
-	if polRes != nil && polRes.Action == "discard" {
-		s.backend.metrics.Received.Add(1)
-		s.backend.log.Info("discarded by policy", "from", msg.From)
-		return nil
+	if handled, err := s.applyResult(msg, data, polRes, "policy"); handled || err != nil {
+		return err
 	}
 
 	if s.backend.filters != nil {
@@ -124,19 +163,8 @@ func (s *session) Data(r io.Reader) error {
 		if err != nil {
 			return err
 		}
-		if fres != nil {
-			switch fres.Action {
-			case "reject":
-				s.backend.metrics.Rejected.Add(1)
-				reason := fres.Reason
-				if reason == "" {
-					reason = "rejected by filter"
-				}
-				return &smtp.SMTPError{Code: 550, EnhancedCode: smtp.EnhancedCode{5, 7, 1}, Message: reason}
-			case "discard":
-				s.backend.metrics.Received.Add(1)
-				return nil
-			}
+		if handled, err := s.applyResult(msg, data, fres, "filter"); handled || err != nil {
+			return err
 		}
 	}
 
@@ -146,6 +174,42 @@ func (s *session) Data(r io.Reader) error {
 	}
 	s.backend.metrics.Received.Add(1)
 	return nil
+}
+
+func (s *session) applyResult(msg *mailmsg.Message, data []byte, res *mailmsg.Result, source string) (handled bool, err error) {
+	if res == nil {
+		return false, nil
+	}
+	switch strings.ToLower(res.Action) {
+	case "", "accept", "tag":
+		return false, nil
+	case "reject":
+		s.backend.metrics.Rejected.Add(1)
+		reason := res.Reason
+		if reason == "" {
+			reason = "rejected by " + source
+		}
+		return true, &smtp.SMTPError{Code: 550, EnhancedCode: smtp.EnhancedCode{5, 7, 1}, Message: reason}
+	case "discard":
+		s.backend.metrics.Received.Add(1)
+		s.backend.log.Info("discarded", "source", source, "from", msg.From, "reason", res.Reason)
+		return true, nil
+	case "quarantine", "hold":
+		if s.backend.quarantine == nil {
+			s.backend.metrics.Rejected.Add(1)
+			return true, &smtp.SMTPError{Code: 550, EnhancedCode: smtp.EnhancedCode{5, 7, 1}, Message: "quarantine unavailable"}
+		}
+		id, qerr := s.backend.quarantine.Put(msg, data, res)
+		if qerr != nil {
+			s.backend.log.Error("quarantine failed", "err", qerr)
+			return true, &smtp.SMTPError{Code: 451, EnhancedCode: smtp.EnhancedCode{4, 3, 0}, Message: "temporary local error"}
+		}
+		s.backend.metrics.Received.Add(1)
+		s.backend.log.Info("quarantined", "source", source, "id", id, "action", res.Action, "reason", res.Reason)
+		return true, nil
+	default:
+		return false, nil
+	}
 }
 
 func (s *session) Reset() {
@@ -257,4 +321,19 @@ func (s *Server) Shutdown(_ context.Context) error {
 		}
 	}
 	return first
+}
+
+func domainOfAddr(addr string) string {
+	addr = normalizeAddr(addr)
+	i := strings.LastIndex(addr, "@")
+	if i < 0 || i == len(addr)-1 {
+		return ""
+	}
+	return strings.ToLower(addr[i+1:])
+}
+
+func normalizeAddr(addr string) string {
+	addr = strings.TrimSpace(addr)
+	addr = strings.Trim(addr, "<>")
+	return strings.ToLower(addr)
 }

@@ -22,9 +22,21 @@ type Worker struct {
 	spool   *queue.Spool
 	metrics *metrics.Registry
 	log     *slog.Logger
+	routes  RouteLookup
+	signer  MessageSigner
 
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
+}
+
+// RouteLookup resolves per-domain next hop.
+type RouteLookup interface {
+	NextHop(ctx context.Context, domain string) (string, bool, error)
+}
+
+// MessageSigner optionally DKIM-signs outbound messages.
+type MessageSigner interface {
+	Sign(msg []byte, fromDomain string) ([]byte, error)
 }
 
 // New creates a relay worker pool (not started).
@@ -34,6 +46,12 @@ func New(cfg *config.Config, spool *queue.Spool, met *metrics.Registry, log *slo
 	}
 	return &Worker{cfg: cfg, spool: spool, metrics: met, log: log}
 }
+
+// SetRoutes attaches domain routing.
+func (w *Worker) SetRoutes(r RouteLookup) { w.routes = r }
+
+// SetSigner attaches DKIM signer.
+func (w *Worker) SetSigner(s MessageSigner) { w.signer = s }
 
 // Start launches background workers.
 func (w *Worker) Start(ctx context.Context) {
@@ -95,6 +113,14 @@ func (w *Worker) deliverOne(ctx context.Context, msg *mailmsg.Message) {
 		w.metrics.Bounced.Add(1)
 		return
 	}
+	if w.signer != nil {
+		dom := domainOf(msg.From)
+		if signed, err := w.signer.Sign(data, dom); err == nil {
+			data = signed
+		} else {
+			w.log.Warn("dkim sign failed", "err", err)
+		}
+	}
 	err = w.send(ctx, msg, data)
 	if err == nil {
 		_ = w.spool.Complete(msg)
@@ -112,9 +138,8 @@ func (w *Worker) deliverOne(ctx context.Context, msg *mailmsg.Message) {
 }
 
 func (w *Worker) send(ctx context.Context, msg *mailmsg.Message, data []byte) error {
-	_ = ctx
 	for _, rcpt := range msg.To {
-		host, err := w.resolveHost(rcpt)
+		host, err := w.resolveHost(ctx, rcpt)
 		if err != nil {
 			return err
 		}
@@ -129,21 +154,39 @@ func (w *Worker) send(ctx context.Context, msg *mailmsg.Message, data []byte) er
 	return nil
 }
 
-func (w *Worker) resolveHost(rcpt string) (string, error) {
+func (w *Worker) resolveHost(ctx context.Context, rcpt string) (string, error) {
+	at := strings.LastIndex(rcpt, "@")
+	domain := ""
+	if at >= 0 && at < len(rcpt)-1 {
+		domain = strings.ToLower(rcpt[at+1:])
+	}
+	if w.routes != nil && domain != "" {
+		if hop, ok, err := w.routes.NextHop(ctx, domain); err != nil {
+			return "", err
+		} else if ok && hop != "" {
+			return hop, nil
+		}
+	}
 	if sh := strings.TrimSpace(w.cfg.Relay.SmartHost); sh != "" {
 		return sh, nil
 	}
-	at := strings.LastIndex(rcpt, "@")
-	if at < 0 || at == len(rcpt)-1 {
+	if domain == "" {
 		return "", fmt.Errorf("invalid recipient: %s", rcpt)
 	}
-	domain := rcpt[at+1:]
 	mxs, err := net.LookupMX(domain)
 	if err != nil || len(mxs) == 0 {
-		// Fallback to A/AAAA of the domain itself.
 		return domain, nil
 	}
 	return strings.TrimSuffix(mxs[0].Host, "."), nil
+}
+
+func domainOf(addr string) string {
+	addr = strings.Trim(addr, "<>")
+	i := strings.LastIndex(addr, "@")
+	if i < 0 || i == len(addr)-1 {
+		return ""
+	}
+	return strings.ToLower(addr[i+1:])
 }
 
 func smtpSend(addr, helo, from string, to []string, data []byte) error {

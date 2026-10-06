@@ -3,9 +3,12 @@
 Почтовый шлюз (MTA / Mail Security Gateway) на Go: один статически скомпилированный бинарник.
 
 **Автор:** Кислов Роман Сергеевич  
-**Лицензия:** [Apache License 2.0](LICENSE)
+**Лицензия:** [Apache License 2.0](LICENSE)  
+**Релиз:** [v0.1.0](https://github.com/rkislov/mailedge/releases/tag/v0.1.0)
 
-![Статус-страница mgw](docs/status.png)
+| | |
+|:---:|:---:|
+| ![Статус-страница](docs/status.png) | ![Dashboard с графиками](docs/dashboard.png) |
 
 ## Wallpaper pack
 
@@ -19,7 +22,25 @@ Street-art обои (day / night / phone / tablet), SVG-мастер и Retina-�
 |:---:|:---:|
 | ![day](wallpapers/desktop/mgw-day-1920x1080.png) | ![night](wallpapers/desktop/mgw-night-1920x1080.png) |
 
-## Этап 1 (текущий)
+## Этап 5 (текущий)
+
+Policy Engine + DNSBL + встроенный антиспам:
+
+- правила политик (YAML / UI): from/to/IP/CIDR/subject/size → accept/reject/quarantine/discard/tag/hold
+- DNSBL-зоны с whitelist и кэшем
+- scoring-антиспам с порогами tag / quarantine / reject
+
+## Этап 2
+
+Веб-админка (`/admin` → `/setup` при первом запуске):
+
+- Settings — порты SMTP/Web, hostname, relay, ACME, logging
+- Certificates — self-signed, import, УЦ, ACME issue
+- Domains — локальные домены, маршруты next-hop, aliases/forward
+- DKIM — keygen, DNS TXT, подпись outbound
+- Dashboard — live KPI и графики (письма, CPU/RSS, очередь)
+
+## Этап 1
 
 - SMTP-приём (ESMTP, STARTTLS, опционально SMTPS :465)
 - MIME-разбор, дисковая очередь, relay
@@ -79,6 +100,7 @@ mgw config init|validate|show
 mgw cert list|show|import|delete|selfsigned
 mgw cert ca list|add|remove
 mgw cert acme status|issue|renew
+mgw test mail file.eml [--from] [--to] [--ip] [--json]
 ```
 
 ## Конфигурация

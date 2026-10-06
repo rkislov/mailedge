@@ -1,0 +1,56 @@
+{{define "dkim.html"}}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DKIM — mgw</title>
+  <link rel="stylesheet" href="/static/street.css">
+  <link rel="stylesheet" href="/static/admin.css">
+</head>
+<body class="admin-body">
+  <div class="wall" aria-hidden="true"><div class="wall__concrete"></div><div class="wall__brick"></div><div class="wall__grain"></div></div>
+  <div class="admin-shell">
+    {{template "nav" .}}
+    <main class="admin-main">
+      {{if .Flash}}<p class="flash flash--ok">{{.Flash}}</p>{{end}}
+      {{if .Error}}<p class="flash flash--err">{{.Error}}</p>{{end}}
+      <header class="admin-head"><h1>DKIM</h1><p>ключи, селекторы, DNS TXT</p></header>
+
+      <form method="post" class="stack-form stencil-panel">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <input type="hidden" name="action" value="generate">
+        <h2 class="stencil-panel__h">новый ключ</h2>
+        <label>domain <input name="domain" required value="{{.Hostname}}"></label>
+        <label>selector <input name="selector" value="mgw"></label>
+        <label>algorithm
+          <select name="algorithm">
+            <option value="rsa2048">RSA 2048</option>
+            <option value="rsa4096">RSA 4096</option>
+            <option value="ed25519">Ed25519</option>
+          </select>
+        </label>
+        <label class="check"><input type="checkbox" name="sign" checked> sign outbound</label>
+        <button type="submit">Сгенерировать</button>
+      </form>
+
+      {{range .DKIMKeys}}
+      <section class="stencil-panel">
+        <h2 class="stencil-panel__h">{{.Domain}} / {{.Selector}}</h2>
+        <p>{{.Algorithm}} · sign={{yesno .SignOutbound}} · {{.CreatedAt}}</p>
+        <pre class="dns-box">{{safe (index $.DNSHints .ID)}}</pre>
+        <form method="post" class="inline">
+          <input type="hidden" name="csrf" value="{{$.CSRF}}">
+          <input type="hidden" name="action" value="delete">
+          <input type="hidden" name="id" value="{{.ID}}">
+          <button type="submit">Удалить</button>
+        </form>
+      </section>
+      {{else}}
+      <p class="muted">Ключей пока нет.</p>
+      {{end}}
+    </main>
+  </div>
+</body>
+</html>
+{{end}}

@@ -1,0 +1,90 @@
+{{define "certs.html"}}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Certificates — mgw</title>
+  <link rel="stylesheet" href="/static/street.css">
+  <link rel="stylesheet" href="/static/admin.css">
+</head>
+<body class="admin-body">
+  <div class="wall" aria-hidden="true"><div class="wall__concrete"></div><div class="wall__brick"></div><div class="wall__grain"></div></div>
+  <div class="admin-shell">
+    {{template "nav" .}}
+    <main class="admin-main">
+      {{if .Flash}}<p class="flash flash--ok">{{.Flash}}</p>{{end}}
+      {{if .Error}}<p class="flash flash--err">{{.Error}}</p>{{end}}
+      <header class="admin-head"><h1>Certificates</h1><p>TLS, УЦ, ACME</p></header>
+
+      <section class="stencil-panel">
+        <h2 class="stencil-panel__h">установленные</h2>
+        <ul class="meter">
+          {{range .Certs}}
+          <li>
+            <span>{{.Name}} · {{.DaysLeft}}d · {{join .DNSNames ","}}</span>
+            <form method="post" action="/admin/certs" class="inline">
+              <input type="hidden" name="csrf" value="{{$.CSRF}}">
+              <input type="hidden" name="action" value="delete">
+              <input type="hidden" name="name" value="{{.Name}}">
+              <button type="submit">del</button>
+            </form>
+          </li>
+          {{else}}<li><span>(пусто)</span><strong></strong></li>{{end}}
+        </ul>
+      </section>
+
+      <form method="post" action="/admin/certs" class="stack-form stencil-panel">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <input type="hidden" name="action" value="selfsigned">
+        <h2 class="stencil-panel__h">self-signed</h2>
+        <label>domain <input name="domain" value="{{.Hostname}}"></label>
+        <button type="submit">Сгенерировать</button>
+      </form>
+
+      <form method="post" action="/admin/certs" enctype="multipart/form-data" class="stack-form stencil-panel">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <input type="hidden" name="action" value="import">
+        <h2 class="stencil-panel__h">import PEM</h2>
+        <label>cert <input type="file" name="cert" required></label>
+        <label>key <input type="file" name="key" required></label>
+        <button type="submit">Импорт</button>
+      </form>
+
+      <section class="stencil-panel">
+        <h2 class="stencil-panel__h">УЦ</h2>
+        <ul class="meter">
+          {{range .CAList}}
+          <li><span>{{.}}</span>
+            <form method="post" action="/admin/certs" class="inline">
+              <input type="hidden" name="csrf" value="{{$.CSRF}}">
+              <input type="hidden" name="action" value="ca_remove">
+              <input type="hidden" name="name" value="{{.}}">
+              <button type="submit">del</button>
+            </form>
+          </li>
+          {{else}}<li><span>(пусто)</span><strong></strong></li>{{end}}
+        </ul>
+        <form method="post" action="/admin/certs" enctype="multipart/form-data" class="stack-form">
+          <input type="hidden" name="csrf" value="{{.CSRF}}">
+          <input type="hidden" name="action" value="ca_add">
+          <label>ca pem <input type="file" name="ca" required></label>
+          <button type="submit">Добавить УЦ</button>
+        </form>
+      </section>
+
+      <section class="stencil-panel">
+        <h2 class="stencil-panel__h">ACME</h2>
+        <p>enabled={{yesno .ACME.Enabled}} · has_cert={{yesno .ACME.HasCert}}</p>
+        <form method="post" action="/admin/certs" class="stack-form">
+          <input type="hidden" name="csrf" value="{{.CSRF}}">
+          <input type="hidden" name="action" value="acme_issue">
+          <label>domains <input name="domains" value="{{join .ACME.Domains ", "}}"></label>
+          <button type="submit">Issue / Renew</button>
+        </form>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
+{{end}}

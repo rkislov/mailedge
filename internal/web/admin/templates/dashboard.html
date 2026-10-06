@@ -1,0 +1,68 @@
+{{define "dashboard.html"}}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard — mgw</title>
+  <link rel="stylesheet" href="/static/street.css">
+  <link rel="stylesheet" href="/static/admin.css">
+  <script src="/static/chart.umd.min.js" defer></script>
+  <script src="/static/dashboard.js" defer></script>
+</head>
+<body class="admin-body">
+  <div class="wall" aria-hidden="true"><div class="wall__concrete"></div><div class="wall__brick"></div><div class="wall__grain"></div></div>
+  <div class="admin-shell">
+    {{template "nav" .}}
+    <main class="admin-main">
+      {{if .Flash}}<p class="flash flash--ok">{{.Flash}}</p>{{end}}
+      {{if .Error}}<p class="flash flash--err">{{.Error}}</p>{{end}}
+      <header class="admin-head">
+        <h1>Dashboard</h1>
+        <p>{{.Hostname}} · v{{.Version}} · uptime {{.Uptime}}</p>
+      </header>
+
+      <section class="kpi-row" id="kpi-row">
+        <div class="kpi"><span>принято</span><strong id="kpi-recv">0</strong></div>
+        <div class="kpi"><span>доставлено</span><strong id="kpi-deliv">0</strong></div>
+        <div class="kpi"><span>отклонено</span><strong id="kpi-rej">0</strong></div>
+        <div class="kpi"><span>отложено</span><strong id="kpi-def">0</strong></div>
+        <div class="kpi"><span>bounce</span><strong id="kpi-bnc">0</strong></div>
+        <div class="kpi"><span>CPU</span><strong id="kpi-cpu">0%</strong></div>
+        <div class="kpi"><span>RSS</span><strong id="kpi-rss">—</strong></div>
+        <div class="kpi"><span>goroutines</span><strong id="kpi-go">0</strong></div>
+      </section>
+
+      <div class="charts-grid">
+        <section class="stencil-panel chart-panel">
+          <h2 class="stencil-panel__h">письма · totals</h2>
+          <canvas id="chart-mail-totals" height="160"></canvas>
+        </section>
+        <section class="stencil-panel chart-panel">
+          <h2 class="stencil-panel__h">письма · rate (msg/s)</h2>
+          <canvas id="chart-mail-rate" height="160"></canvas>
+        </section>
+        <section class="stencil-panel chart-panel">
+          <h2 class="stencil-panel__h">ресурсы · CPU / память</h2>
+          <canvas id="chart-sys" height="160"></canvas>
+        </section>
+        <section class="stencil-panel chart-panel">
+          <h2 class="stencil-panel__h">очередь</h2>
+          <canvas id="chart-queue" height="160"></canvas>
+        </section>
+      </div>
+
+      <section class="stencil-panel">
+        <p class="badge badge--live">LIVE · 5s</p>
+        <h2 class="stencil-panel__h">текущие счётчики</h2>
+        <ul class="meter" id="meter-totals">
+          {{range $k,$v := .Metrics}}<li><span>{{$k}}</span><strong>{{$v}}</strong></li>{{end}}
+        </ul>
+        <h2 class="stencil-panel__h">очередь сейчас</h2>
+        <ul class="meter">{{range $k,$v := .Queue}}<li><span>{{$k}}</span><strong>{{$v}}</strong></li>{{end}}</ul>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
+{{end}}

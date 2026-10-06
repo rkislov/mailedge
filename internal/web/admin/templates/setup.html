@@ -1,0 +1,25 @@
+{{define "setup.html"}}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Setup — mgw</title>
+  <link rel="stylesheet" href="/static/street.css">
+  <link rel="stylesheet" href="/static/admin.css">
+</head>
+<body class="admin-body">
+  <div class="wall" aria-hidden="true"><div class="wall__concrete"></div><div class="wall__brick"></div><div class="wall__grain"></div></div>
+  <main class="auth-panel">
+    <h1>mgw setup</h1>
+    <p>Создайте администратора (первый запуск).</p>
+    {{if .Error}}<p class="flash flash--err">{{.Error}}</p>{{end}}
+    <form method="post" action="/setup" class="stack-form">
+      <label>Логин <input name="username" required autocomplete="username"></label>
+      <label>Пароль <input type="password" name="password" required minlength="8" autocomplete="new-password"></label>
+      <button type="submit">Создать</button>
+    </form>
+  </main>
+</body>
+</html>
+{{end}}

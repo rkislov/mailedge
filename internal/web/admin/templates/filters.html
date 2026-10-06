@@ -1,0 +1,85 @@
+{{define "filters.html"}}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Filters — mgw</title>
+  <link rel="stylesheet" href="/static/street.css">
+  <link rel="stylesheet" href="/static/admin.css">
+</head>
+<body class="admin-body">
+  <div class="wall" aria-hidden="true"><div class="wall__concrete"></div><div class="wall__brick"></div><div class="wall__grain"></div></div>
+  <div class="admin-shell">
+    {{template "nav" .}}
+    <main class="admin-main">
+      {{if .Flash}}<p class="flash flash--ok">{{.Flash}}</p>{{end}}
+      {{if .Error}}<p class="flash flash--err">{{.Error}}</p>{{end}}
+      <header class="admin-head"><h1>Filters</h1><p>DNSBL · antispam scoring</p></header>
+
+      <form method="post" class="stack-form stencil-panel">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <input type="hidden" name="action" value="dnsbl">
+        <h2 class="stencil-panel__h">DNSBL</h2>
+        <label class="check"><input type="checkbox" name="dnsbl_enabled" {{if .Cfg.Filters.DNSBL.Enabled}}checked{{end}}> enabled</label>
+        <label>cache TTL <input name="cache_ttl" value="{{.Cfg.Filters.DNSBL.CacheTTL}}"></label>
+        <label>whitelist (CIDR, по строке)
+          <textarea name="whitelist" rows="4">{{join .Cfg.Filters.DNSBL.Whitelist "\n"}}</textarea>
+        </label>
+        <label>zones (zone [weight] [action])
+          <textarea name="zones" rows="5" placeholder="zen.spamhaus.org 10 reject">{{range .Cfg.Filters.DNSBL.Zones}}{{.Zone}} {{.Weight}} {{.Action}}
+{{end}}</textarea>
+        </label>
+        <button type="submit">Сохранить DNSBL</button>
+      </form>
+
+      <form method="post" class="stack-form stencil-panel">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <input type="hidden" name="action" value="antispam">
+        <h2 class="stencil-panel__h">Antispam</h2>
+        <label class="check"><input type="checkbox" name="antispam_enabled" {{if .Cfg.Filters.Antispam.Enabled}}checked{{end}}> enabled</label>
+        <label>tag score <input name="tag_score" type="number" step="0.1" value="{{.Cfg.Filters.Antispam.TagScore}}"></label>
+        <label>quarantine score <input name="quarantine_score" type="number" step="0.1" value="{{.Cfg.Filters.Antispam.QuarantineScore}}"></label>
+        <label>reject score <input name="reject_score" type="number" step="0.1" value="{{.Cfg.Filters.Antispam.RejectScore}}"></label>
+        <button type="submit">Сохранить пороги</button>
+      </form>
+
+      <section class="stencil-panel">
+        <h2 class="stencil-panel__h">Antispam rules</h2>
+        {{if .Cfg.Filters.Antispam.Rules}}
+        <ul class="meter">
+          {{range .Cfg.Filters.Antispam.Rules}}
+          <li>
+            <span>{{.ID}} w={{.Weight}} {{if .Header}}hdr={{.Header}}{{else}}body{{end}} {{.Regex}}</span>
+            <strong>
+              <form method="post" style="display:inline">
+                <input type="hidden" name="csrf" value="{{$.CSRF}}">
+                <input type="hidden" name="action" value="del_rule">
+                <input type="hidden" name="id" value="{{.ID}}">
+                <button type="submit">del</button>
+              </form>
+            </strong>
+          </li>
+          {{end}}
+        </ul>
+        {{else}}
+        <p class="muted">правил нет</p>
+        {{end}}
+      </section>
+
+      <form method="post" class="stack-form stencil-panel">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <input type="hidden" name="action" value="add_rule">
+        <h2 class="stencil-panel__h">Add antispam rule</h2>
+        <label>id <input name="id" required></label>
+        <label>weight <input name="weight" type="number" step="0.1" value="3"></label>
+        <label>header (пусто = body) <input name="header" placeholder="Subject"></label>
+        <label>regex <input name="regex" required placeholder="(?i)viagra"></label>
+        <label class="check"><input type="checkbox" name="uri"> URI-only</label>
+        <button type="submit">Добавить</button>
+      </form>
+    </main>
+  </div>
+</body>
+</html>
+{{end}}
