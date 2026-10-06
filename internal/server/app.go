@@ -19,6 +19,7 @@ import (
 	dkimkeys "github.com/rkislov/mailedge/internal/dkim"
 	"github.com/rkislov/mailedge/internal/domains"
 	"github.com/rkislov/mailedge/internal/filter"
+	"github.com/rkislov/mailedge/internal/intel"
 	"github.com/rkislov/mailedge/internal/logging"
 	"github.com/rkislov/mailedge/internal/metrics"
 	"github.com/rkislov/mailedge/internal/policy"
@@ -48,6 +49,8 @@ type App struct {
 	smtp    *smtpserver.Server
 	relay   *relay.Worker
 	httpSrv *http.Server
+	feeder  *intel.Feeder
+	ioc     *intel.Store
 	started time.Time
 
 	mu      sync.Mutex
@@ -129,7 +132,8 @@ func New(cfg *config.Config, cfgPath string) (*App, error) {
 		return s
 	})
 	pol := policy.New(cfg)
-	chain, err := filter.BuildChain(cfg)
+	iocStore := intel.NewStore(db.SQL())
+	chain, err := filter.BuildChain(cfg, iocStore)
 	if err != nil {
 		_ = db.Close()
 		return nil, err
@@ -175,8 +179,15 @@ func New(cfg *config.Config, cfgPath string) (*App, error) {
 		history: hist,
 		smtp:    smtpSrv,
 		relay:   rel,
+		ioc:     iocStore,
 		started: time.Now().UTC(),
 	}
+	feeder := intel.NewFeeder(iocStore, func() config.IntelConfig {
+		app.cfgMu.RLock()
+		defer app.cfgMu.RUnlock()
+		return app.cfg.Filters.Intel
+	}, log)
+	app.feeder = feeder
 
 	webHandler, err := web.NewHandler(spool, met, cfg.Server.SMTP.Hostname)
 	if err != nil {
@@ -184,21 +195,23 @@ func New(cfg *config.Config, cfgPath string) (*App, error) {
 		return nil, fmt.Errorf("web: %w", err)
 	}
 	adminHandler, err := admin.New(admin.Deps{
-		CfgPath:     cfgPath,
-		Cfg:         cfg,
-		CfgMu:       &app.cfgMu,
-		Auth:        authSvc,
-		Certs:       certMgr,
-		Domains:     domStore,
-		DKIM:        dkimMgr,
-		Spool:       spool,
-		Metrics:     met,
-		History:     hist,
-		Policy:      pol,
-		Filters:     chain,
-		Quarantine:  qstore,
-		Log:         log,
-		Started:     app.started,
+		CfgPath:    cfgPath,
+		Cfg:        cfg,
+		CfgMu:      &app.cfgMu,
+		Auth:       authSvc,
+		Certs:      certMgr,
+		Domains:    domStore,
+		DKIM:       dkimMgr,
+		Spool:      spool,
+		Metrics:    met,
+		History:    hist,
+		Policy:     pol,
+		Filters:    chain,
+		Quarantine: qstore,
+		IOC:        iocStore,
+		Feeder:     feeder,
+		Log:        log,
+		Started:    app.started,
 	})
 	if err != nil {
 		_ = db.Close()
@@ -246,6 +259,10 @@ func (a *App) Run(ctx context.Context) error {
 
 	if a.history != nil {
 		a.history.Start(ctx.Done())
+	}
+
+	if a.feeder != nil {
+		a.feeder.Start(ctx)
 	}
 
 	a.relay.Start(ctx)

@@ -172,6 +172,8 @@ type FiltersConfig struct {
 	Antispam AntispamConfig `yaml:"antispam"`
 	AV       AVConfig       `yaml:"av"`
 	Sandbox  SandboxConfig  `yaml:"sandbox"`
+	Intel    IntelConfig    `yaml:"intel"`
+	DMARC    DMARCConfig    `yaml:"dmarc"`
 }
 
 type DNSBLConfig struct {
@@ -232,6 +234,37 @@ type SandboxConfig struct {
 	OnSuspicious  string        `yaml:"on_suspicious"`  // tag | quarantine | pass
 	MaxBytes      int64         `yaml:"max_bytes"`
 	AttachmentsOnly bool        `yaml:"attachments_only"`
+}
+
+// IntelConfig is Threat Intelligence / IOC matching.
+type IntelConfig struct {
+	Enabled         bool              `yaml:"enabled"`
+	OnHit           string            `yaml:"on_hit"` // reject | quarantine | tag
+	RefreshInterval time.Duration     `yaml:"refresh_interval"`
+	ThreatFox       ThreatFoxConfig   `yaml:"threatfox"`
+	QFeed           QFeedConfig       `yaml:"qfeed"`
+}
+
+type ThreatFoxConfig struct {
+	Enabled bool   `yaml:"enabled"`
+	URL     string `yaml:"url"`
+	Days    int    `yaml:"days"`
+}
+
+type QFeedConfig struct {
+	Enabled    bool   `yaml:"enabled"`
+	URL        string `yaml:"url"`
+	AuthHeader string `yaml:"auth_header"`
+}
+
+// DMARCConfig configures inbound SPF/DKIM/DMARC authentication.
+type DMARCConfig struct {
+	Enabled     bool   `yaml:"enabled"`
+	AuthservID  string `yaml:"authserv_id"`  // Authentication-Results authserv-id
+	HonorPolicy bool   `yaml:"honor_policy"` // apply DMARC p=/sp=
+	AddHeader   bool   `yaml:"add_header"`   // prepend Authentication-Results
+	OnFail      string `yaml:"on_fail"`      // optional override: reject|quarantine|tag
+	OnTempFail  string `yaml:"on_tempfail"`  // pass|reject|quarantine
 }
 
 var envPattern = regexp.MustCompile(`\$\{([A-Za-z_][A-Za-z0-9_]*)\}`)
@@ -417,6 +450,24 @@ func applyDefaults(c *Config) {
 	if c.Filters.Sandbox.MaxBytes == 0 {
 		c.Filters.Sandbox.MaxBytes = 10 << 20
 	}
+	if c.Filters.Intel.OnHit == "" {
+		c.Filters.Intel.OnHit = "reject"
+	}
+	if c.Filters.Intel.RefreshInterval == 0 {
+		c.Filters.Intel.RefreshInterval = time.Hour
+	}
+	if c.Filters.Intel.ThreatFox.URL == "" {
+		c.Filters.Intel.ThreatFox.URL = "https://threatfox-api.abuse.ch/api/v1/"
+	}
+	if c.Filters.Intel.ThreatFox.Days <= 0 {
+		c.Filters.Intel.ThreatFox.Days = 1
+	}
+	if c.Filters.DMARC.OnTempFail == "" {
+		c.Filters.DMARC.OnTempFail = "pass"
+	}
+	if c.Filters.DMARC.AuthservID == "" && c.Server.SMTP.Hostname != "" {
+		c.Filters.DMARC.AuthservID = c.Server.SMTP.Hostname
+	}
 }
 
 // CertsDir returns the certificate store root.
@@ -505,6 +556,24 @@ func (c *Config) Validate() error {
 	}
 	if c.Filters.Sandbox.Enabled && strings.TrimSpace(c.Filters.Sandbox.URL) == "" {
 		errs = append(errs, "filters.sandbox.url is required when sandbox is enabled")
+	}
+	switch strings.ToLower(c.Filters.Intel.OnHit) {
+	case "", "reject", "quarantine", "tag":
+	default:
+		errs = append(errs, "filters.intel.on_hit must be reject, quarantine, or tag")
+	}
+	if c.Filters.Intel.QFeed.Enabled && strings.TrimSpace(c.Filters.Intel.QFeed.URL) == "" {
+		errs = append(errs, "filters.intel.qfeed.url is required when qfeed is enabled")
+	}
+	switch strings.ToLower(c.Filters.DMARC.OnFail) {
+	case "", "reject", "quarantine", "tag", "accept":
+	default:
+		errs = append(errs, "filters.dmarc.on_fail must be reject, quarantine, tag, or accept")
+	}
+	switch strings.ToLower(c.Filters.DMARC.OnTempFail) {
+	case "", "pass", "reject", "quarantine":
+	default:
+		errs = append(errs, "filters.dmarc.on_tempfail must be pass, reject, or quarantine")
 	}
 	if c.Server.SMTP.MaxMessageBytes < 0 {
 		errs = append(errs, "server.smtp.max_message_bytes must be >= 0")
@@ -619,6 +688,13 @@ policy:
   rules: []
 
 filters:
+  dmarc:
+    enabled: true
+    authserv_id: ""
+    honor_policy: true
+    add_header: true
+    on_fail: ""
+    on_tempfail: pass
   dnsbl:
     enabled: false
     cache_ttl: 1h
@@ -658,5 +734,15 @@ filters:
     on_malicious: reject
     on_suspicious: tag
     max_bytes: 10485760
+  intel:
+    enabled: false
+    on_hit: reject
+    refresh_interval: 1h
+    threatfox:
+      enabled: false
+      days: 1
+    qfeed:
+      enabled: false
+      url: ""
 `
 }

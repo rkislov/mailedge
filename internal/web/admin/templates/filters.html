@@ -15,9 +15,53 @@
     <main class="admin-main">
       {{if .Flash}}<p class="flash flash--ok">{{.Flash}}</p>{{end}}
       {{if .Error}}<p class="flash flash--err">{{.Error}}</p>{{end}}
-      <header class="admin-head"><h1>Filters</h1><p>DNSBL · antispam · ICAP AV · sandbox</p></header>
+      <header class="admin-head"><h1>Filters</h1><p>SPF/DKIM/DMARC · DNSBL · antispam · ICAP · sandbox</p></header>
 
-      <form method="post" class="stack-form stencil-panel">
+      <nav class="filter-jump" aria-label="разделы">
+        <a href="#dmarc" class="{{if .Cfg.Filters.DMARC.Enabled}}filter-jump__on{{else}}filter-jump__off{{end}}">DMARC {{if .Cfg.Filters.DMARC.Enabled}}on{{else}}off{{end}}</a>
+        <a href="#dnsbl" class="{{if .Cfg.Filters.DNSBL.Enabled}}filter-jump__on{{else}}filter-jump__off{{end}}">DNSBL {{if .Cfg.Filters.DNSBL.Enabled}}on{{else}}off{{end}}</a>
+        <a href="#av" class="{{if .Cfg.Filters.AV.Enabled}}filter-jump__on{{else}}filter-jump__off{{end}}">AV {{if .Cfg.Filters.AV.Enabled}}on{{else}}off{{end}}</a>
+        <a href="#sandbox" class="{{if .Cfg.Filters.Sandbox.Enabled}}filter-jump__on{{else}}filter-jump__off{{end}}">Sandbox {{if .Cfg.Filters.Sandbox.Enabled}}on{{else}}off{{end}}</a>
+        <a href="#antispam" class="{{if .Cfg.Filters.Antispam.Enabled}}filter-jump__on{{else}}filter-jump__off{{end}}">Antispam {{if .Cfg.Filters.Antispam.Enabled}}on{{else}}off{{end}}</a>
+      </nav>
+
+      <div class="filter-grid">
+      <form method="post" id="dmarc" class="stack-form stencil-panel span-2">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <input type="hidden" name="action" value="dmarc">
+        <h2 class="stencil-panel__h">SPF / DKIM / DMARC</h2>
+        <p class="panel-lead">Входящая аутентификация: SPF + DKIM, alignment по DMARC, заголовок Authentication-Results.</p>
+        <div class="status-row">
+          {{if .Cfg.Filters.DMARC.Enabled}}<span class="pill pill--on">enabled</span>{{else}}<span class="pill pill--off">disabled</span>{{end}}
+          {{if .Cfg.Filters.DMARC.HonorPolicy}}<span class="pill pill--on">honor p=/sp=</span>{{else}}<span class="pill">policy monitor</span>{{end}}
+          {{if .Cfg.Filters.DMARC.AddHeader}}<span class="pill pill--on">auth-results</span>{{else}}<span class="pill pill--off">no header</span>{{end}}
+        </div>
+        <div class="form-grid">
+          <label class="check"><input type="checkbox" name="dmarc_enabled" {{if .Cfg.Filters.DMARC.Enabled}}checked{{end}}> enabled</label>
+          <label class="check"><input type="checkbox" name="dmarc_honor_policy" {{if .Cfg.Filters.DMARC.HonorPolicy}}checked{{end}}> honor DMARC policy (p=/sp=)</label>
+          <label class="check span-2"><input type="checkbox" name="dmarc_add_header" {{if .Cfg.Filters.DMARC.AddHeader}}checked{{end}}> Authentication-Results header</label>
+          <label>authserv-id <input name="dmarc_authserv_id" value="{{.Cfg.Filters.DMARC.AuthservID}}" placeholder="mail.example.com"></label>
+          <label>on fail override
+            <select name="dmarc_on_fail">
+              <option value="" {{if eq .Cfg.Filters.DMARC.OnFail ""}}selected{{end}}>(policy)</option>
+              <option value="reject" {{if eq .Cfg.Filters.DMARC.OnFail "reject"}}selected{{end}}>reject</option>
+              <option value="quarantine" {{if eq .Cfg.Filters.DMARC.OnFail "quarantine"}}selected{{end}}>quarantine</option>
+              <option value="tag" {{if eq .Cfg.Filters.DMARC.OnFail "tag"}}selected{{end}}>tag</option>
+              <option value="accept" {{if eq .Cfg.Filters.DMARC.OnFail "accept"}}selected{{end}}>accept</option>
+            </select>
+          </label>
+          <label>on temperror
+            <select name="dmarc_on_tempfail">
+              <option value="pass" {{if eq .Cfg.Filters.DMARC.OnTempFail "pass"}}selected{{end}}>pass</option>
+              <option value="quarantine" {{if eq .Cfg.Filters.DMARC.OnTempFail "quarantine"}}selected{{end}}>quarantine</option>
+              <option value="reject" {{if eq .Cfg.Filters.DMARC.OnTempFail "reject"}}selected{{end}}>reject</option>
+            </select>
+          </label>
+        </div>
+        <button type="submit">Сохранить DMARC</button>
+      </form>
+
+      <form method="post" id="dnsbl" class="stack-form stencil-panel">
         <input type="hidden" name="csrf" value="{{.CSRF}}">
         <input type="hidden" name="action" value="dnsbl">
         <h2 class="stencil-panel__h">DNSBL</h2>
@@ -33,7 +77,20 @@
         <button type="submit">Сохранить DNSBL</button>
       </form>
 
-      <form method="post" class="stack-form stencil-panel">
+      <form method="post" id="antispam" class="stack-form stencil-panel">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <input type="hidden" name="action" value="antispam">
+        <h2 class="stencil-panel__h">Antispam</h2>
+        <label class="check"><input type="checkbox" name="antispam_enabled" {{if .Cfg.Filters.Antispam.Enabled}}checked{{end}}> enabled</label>
+        <div class="form-grid">
+          <label>tag score <input name="tag_score" type="number" step="0.1" value="{{.Cfg.Filters.Antispam.TagScore}}"></label>
+          <label>quarantine score <input name="quarantine_score" type="number" step="0.1" value="{{.Cfg.Filters.Antispam.QuarantineScore}}"></label>
+          <label class="span-2">reject score <input name="reject_score" type="number" step="0.1" value="{{.Cfg.Filters.Antispam.RejectScore}}"></label>
+        </div>
+        <button type="submit">Сохранить пороги</button>
+      </form>
+
+      <form method="post" id="av" class="stack-form stencil-panel">
         <input type="hidden" name="csrf" value="{{.CSRF}}">
         <input type="hidden" name="action" value="av">
         <h2 class="stencil-panel__h">AV / ICAP</h2>
@@ -60,17 +117,19 @@
         <button type="submit">Сохранить AV</button>
       </form>
 
-      <form method="post" class="stack-form stencil-panel">
+      <form method="post" id="sandbox" class="stack-form stencil-panel">
         <input type="hidden" name="csrf" value="{{.CSRF}}">
         <input type="hidden" name="action" value="sandbox">
         <h2 class="stencil-panel__h">Sandbox</h2>
         <label class="check"><input type="checkbox" name="sandbox_enabled" {{if .Cfg.Filters.Sandbox.Enabled}}checked{{end}}> enabled</label>
         <label>URL <input name="sandbox_url" value="{{.Cfg.Filters.Sandbox.URL}}" placeholder="https://sandbox/api/v1/submit"></label>
         <label>API key <input name="sandbox_api_key" value="{{.Cfg.Filters.Sandbox.APIKey}}" type="password" autocomplete="off"></label>
-        <label>timeout <input name="sandbox_timeout" value="{{.Cfg.Filters.Sandbox.Timeout}}"></label>
-        <label>cache TTL <input name="sandbox_cache_ttl" value="{{.Cfg.Filters.Sandbox.CacheTTL}}"></label>
-        <label>max bytes <input name="sandbox_max_bytes" type="number" value="{{.Cfg.Filters.Sandbox.MaxBytes}}"></label>
-        <label class="check"><input type="checkbox" name="sandbox_attachments_only" {{if .Cfg.Filters.Sandbox.AttachmentsOnly}}checked{{end}}> attachments only</label>
+        <div class="form-grid">
+          <label>timeout <input name="sandbox_timeout" value="{{.Cfg.Filters.Sandbox.Timeout}}"></label>
+          <label>cache TTL <input name="sandbox_cache_ttl" value="{{.Cfg.Filters.Sandbox.CacheTTL}}"></label>
+          <label>max bytes <input name="sandbox_max_bytes" type="number" value="{{.Cfg.Filters.Sandbox.MaxBytes}}"></label>
+          <label class="check"><input type="checkbox" name="sandbox_attachments_only" {{if .Cfg.Filters.Sandbox.AttachmentsOnly}}checked{{end}}> attachments only</label>
+        </div>
         <label>on unavailable
           <select name="sandbox_on_unavailable">
             <option value="pass" {{if eq .Cfg.Filters.Sandbox.OnUnavailable "pass"}}selected{{end}}>pass</option>
@@ -95,18 +154,7 @@
         <button type="submit">Сохранить sandbox</button>
       </form>
 
-      <form method="post" class="stack-form stencil-panel">
-        <input type="hidden" name="csrf" value="{{.CSRF}}">
-        <input type="hidden" name="action" value="antispam">
-        <h2 class="stencil-panel__h">Antispam</h2>
-        <label class="check"><input type="checkbox" name="antispam_enabled" {{if .Cfg.Filters.Antispam.Enabled}}checked{{end}}> enabled</label>
-        <label>tag score <input name="tag_score" type="number" step="0.1" value="{{.Cfg.Filters.Antispam.TagScore}}"></label>
-        <label>quarantine score <input name="quarantine_score" type="number" step="0.1" value="{{.Cfg.Filters.Antispam.QuarantineScore}}"></label>
-        <label>reject score <input name="reject_score" type="number" step="0.1" value="{{.Cfg.Filters.Antispam.RejectScore}}"></label>
-        <button type="submit">Сохранить пороги</button>
-      </form>
-
-      <section class="stencil-panel">
+      <section class="stencil-panel span-2">
         <h2 class="stencil-panel__h">Antispam rules</h2>
         {{if .Cfg.Filters.Antispam.Rules}}
         <ul class="meter">
@@ -114,7 +162,7 @@
           <li>
             <span>{{.ID}} w={{.Weight}} {{if .Header}}hdr={{.Header}}{{else}}body{{end}} {{.Regex}}</span>
             <strong>
-              <form method="post" style="display:inline">
+              <form method="post" class="inline">
                 <input type="hidden" name="csrf" value="{{$.CSRF}}">
                 <input type="hidden" name="action" value="del_rule">
                 <input type="hidden" name="id" value="{{.ID}}">
@@ -129,17 +177,20 @@
         {{end}}
       </section>
 
-      <form method="post" class="stack-form stencil-panel">
+      <form method="post" class="stack-form stencil-panel span-2">
         <input type="hidden" name="csrf" value="{{.CSRF}}">
         <input type="hidden" name="action" value="add_rule">
         <h2 class="stencil-panel__h">Add antispam rule</h2>
-        <label>id <input name="id" required></label>
-        <label>weight <input name="weight" type="number" step="0.1" value="3"></label>
-        <label>header (пусто = body) <input name="header" placeholder="Subject"></label>
-        <label>regex <input name="regex" required placeholder="(?i)viagra"></label>
-        <label class="check"><input type="checkbox" name="uri"> URI-only</label>
+        <div class="form-grid">
+          <label>id <input name="id" required></label>
+          <label>weight <input name="weight" type="number" step="0.1" value="3"></label>
+          <label>header (пусто = body) <input name="header" placeholder="Subject"></label>
+          <label>regex <input name="regex" required placeholder="(?i)viagra"></label>
+          <label class="check"><input type="checkbox" name="uri"> URI-only</label>
+        </div>
         <button type="submit">Добавить</button>
       </form>
+      </div>
     </main>
   </div>
 </body>

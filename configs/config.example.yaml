@@ -76,6 +76,13 @@ policy:
   rules: []
 
 filters:
+  dmarc:
+    enabled: true
+    authserv_id: ""           # defaults to server.smtp.hostname
+    honor_policy: true        # apply DMARC p=/sp= on fail
+    add_header: true          # Authentication-Results
+    on_fail: ""               # optional override: reject | quarantine | tag | accept
+    on_tempfail: pass         # pass | reject | quarantine
   dnsbl:
     enabled: false
     cache_ttl: 1h
@@ -123,3 +130,15 @@ filters:
     on_suspicious: tag
     max_bytes: 10485760
     attachments_only: false
+  intel:
+    enabled: false
+    on_hit: reject            # reject | quarantine | tag
+    refresh_interval: 1h
+    threatfox:
+      enabled: false
+      days: 1
+      # url: https://threatfox-api.abuse.ch/api/v1/
+    qfeed:
+      enabled: false
+      url: ""                 # JSON array [{type,value,threat}]
+      auth_header: ""

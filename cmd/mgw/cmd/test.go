@@ -63,7 +63,7 @@ var testMailCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		chain, err := filter.BuildChain(cfg)
+		chain, err := filter.BuildChain(cfg, nil)
 		if err != nil {
 			return err
 		}
