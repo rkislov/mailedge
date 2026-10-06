@@ -4,11 +4,13 @@
 
 **Автор:** Кислов Роман Сергеевич  
 **Лицензия:** [Apache License 2.0](LICENSE)  
-**Релиз:** [v0.1.0](https://github.com/rkislov/mailedge/releases/tag/v0.1.0)
+**Релиз:** [v0.2.0](https://github.com/rkislov/mailedge/releases/tag/v0.2.0)
 
 | | |
 |:---:|:---:|
 | ![Статус-страница](docs/status.png) | ![Dashboard с графиками](docs/dashboard.png) |
+
+![Filters — ICAP AV / sandbox](docs/filters.png)
 
 ## Wallpaper pack
 
@@ -22,7 +24,15 @@ Street-art обои (day / night / phone / tablet), SVG-мастер и Retina-�
 |:---:|:---:|
 | ![day](wallpapers/desktop/mgw-day-1920x1080.png) | ![night](wallpapers/desktop/mgw-night-1920x1080.png) |
 
-## Этап 5 (текущий)
+## Этап 6 (текущий)
+
+ICAP antivirus + HTTP sandbox:
+
+- AV через ICAP RESPMOD (failover серверов, `on_unavailable` / `on_infected`)
+- Sandbox HTTP API (`sha256` + base64, кэш вердиктов, attachments-only)
+- Настройка в `/admin/filters`
+
+## Этап 5
 
 Policy Engine + DNSBL + встроенный антиспам:
 

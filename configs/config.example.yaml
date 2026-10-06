@@ -101,3 +101,25 @@ filters:
       - id: body_casino
         weight: 3
         regex: "(?i)\\b(online casino|poker freeroll)\\b"
+  av:
+    enabled: false
+    timeout: 15s
+    on_unavailable: pass      # pass | quarantine | reject
+    on_infected: reject       # reject | quarantine | tag
+    # max_bytes: 26214400
+    servers: []
+    # servers:
+    #   - addr: "127.0.0.1:1344"
+    #     service: avscan       # c-icap / ClamAV
+    #     tls: false
+  sandbox:
+    enabled: false
+    url: ""                   # POST JSON {sha256,filename,content_base64}
+    api_key: ""
+    timeout: 30s
+    cache_ttl: 24h
+    on_unavailable: pass
+    on_malicious: reject
+    on_suspicious: tag
+    max_bytes: 10485760
+    attachments_only: false

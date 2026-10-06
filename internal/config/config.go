@@ -170,6 +170,8 @@ type PolicyMatch struct {
 type FiltersConfig struct {
 	DNSBL    DNSBLConfig    `yaml:"dnsbl"`
 	Antispam AntispamConfig `yaml:"antispam"`
+	AV       AVConfig       `yaml:"av"`
+	Sandbox  SandboxConfig  `yaml:"sandbox"`
 }
 
 type DNSBLConfig struct {
@@ -186,11 +188,11 @@ type DNSBLZone struct {
 }
 
 type AntispamConfig struct {
-	Enabled          bool           `yaml:"enabled"`
-	TagScore         float64        `yaml:"tag_score"`
-	QuarantineScore  float64        `yaml:"quarantine_score"`
-	RejectScore      float64        `yaml:"reject_score"`
-	Rules            []AntispamRule `yaml:"rules"`
+	Enabled         bool           `yaml:"enabled"`
+	TagScore        float64        `yaml:"tag_score"`
+	QuarantineScore float64        `yaml:"quarantine_score"`
+	RejectScore     float64        `yaml:"reject_score"`
+	Rules           []AntispamRule `yaml:"rules"`
 }
 
 type AntispamRule struct {
@@ -199,6 +201,37 @@ type AntispamRule struct {
 	Header string  `yaml:"header"` // empty = body
 	Regex  string  `yaml:"regex"`
 	URI    bool    `yaml:"uri"` // match URLs in body
+}
+
+// AVConfig is ICAP antivirus (RESPMOD).
+type AVConfig struct {
+	Enabled       bool          `yaml:"enabled"`
+	Servers       []ICAPServer  `yaml:"servers"`
+	Timeout       time.Duration `yaml:"timeout"`
+	OnUnavailable string        `yaml:"on_unavailable"` // pass | quarantine | reject
+	OnInfected    string        `yaml:"on_infected"`    // reject | quarantine | tag
+	MaxBytes      int64         `yaml:"max_bytes"`      // 0 = no limit (scan whole message)
+}
+
+// ICAPServer describes one ICAP endpoint.
+type ICAPServer struct {
+	Addr    string `yaml:"addr"`    // host:port
+	Service string `yaml:"service"` // e.g. avscan
+	TLS     bool   `yaml:"tls"`
+}
+
+// SandboxConfig is an HTTP sandbox / detonation adapter.
+type SandboxConfig struct {
+	Enabled       bool          `yaml:"enabled"`
+	URL           string        `yaml:"url"`
+	APIKey        string        `yaml:"api_key"`
+	Timeout       time.Duration `yaml:"timeout"`
+	CacheTTL      time.Duration `yaml:"cache_ttl"`
+	OnUnavailable string        `yaml:"on_unavailable"` // pass | quarantine | reject
+	OnMalicious   string        `yaml:"on_malicious"`   // reject | quarantine | tag
+	OnSuspicious  string        `yaml:"on_suspicious"`  // tag | quarantine | pass
+	MaxBytes      int64         `yaml:"max_bytes"`
+	AttachmentsOnly bool        `yaml:"attachments_only"`
 }
 
 var envPattern = regexp.MustCompile(`\$\{([A-Za-z_][A-Za-z0-9_]*)\}`)
@@ -352,6 +385,38 @@ func applyDefaults(c *Config) {
 			z.Action = "score"
 		}
 	}
+	if c.Filters.AV.Timeout == 0 {
+		c.Filters.AV.Timeout = 15 * time.Second
+	}
+	if c.Filters.AV.OnUnavailable == "" {
+		c.Filters.AV.OnUnavailable = "pass"
+	}
+	if c.Filters.AV.OnInfected == "" {
+		c.Filters.AV.OnInfected = "reject"
+	}
+	for i := range c.Filters.AV.Servers {
+		if c.Filters.AV.Servers[i].Service == "" {
+			c.Filters.AV.Servers[i].Service = "avscan"
+		}
+	}
+	if c.Filters.Sandbox.Timeout == 0 {
+		c.Filters.Sandbox.Timeout = 30 * time.Second
+	}
+	if c.Filters.Sandbox.CacheTTL == 0 {
+		c.Filters.Sandbox.CacheTTL = 24 * time.Hour
+	}
+	if c.Filters.Sandbox.OnUnavailable == "" {
+		c.Filters.Sandbox.OnUnavailable = "pass"
+	}
+	if c.Filters.Sandbox.OnMalicious == "" {
+		c.Filters.Sandbox.OnMalicious = "reject"
+	}
+	if c.Filters.Sandbox.OnSuspicious == "" {
+		c.Filters.Sandbox.OnSuspicious = "tag"
+	}
+	if c.Filters.Sandbox.MaxBytes == 0 {
+		c.Filters.Sandbox.MaxBytes = 10 << 20
+	}
 }
 
 // CertsDir returns the certificate store root.
@@ -409,6 +474,37 @@ func (c *Config) Validate() error {
 		if _, err := regexp.Compile(rule.Regex); err != nil {
 			errs = append(errs, fmt.Sprintf("filters.antispam.rules[%d].regex: %v", i, err))
 		}
+	}
+	switch strings.ToLower(c.Filters.AV.OnUnavailable) {
+	case "", "pass", "quarantine", "reject":
+	default:
+		errs = append(errs, "filters.av.on_unavailable must be pass, quarantine, or reject")
+	}
+	switch strings.ToLower(c.Filters.AV.OnInfected) {
+	case "", "reject", "quarantine", "tag":
+	default:
+		errs = append(errs, "filters.av.on_infected must be reject, quarantine, or tag")
+	}
+	if c.Filters.AV.Enabled && len(c.Filters.AV.Servers) == 0 {
+		errs = append(errs, "filters.av.servers is required when av is enabled")
+	}
+	for i, s := range c.Filters.AV.Servers {
+		if strings.TrimSpace(s.Addr) == "" {
+			errs = append(errs, fmt.Sprintf("filters.av.servers[%d].addr is required", i))
+		}
+	}
+	switch strings.ToLower(c.Filters.Sandbox.OnUnavailable) {
+	case "", "pass", "quarantine", "reject":
+	default:
+		errs = append(errs, "filters.sandbox.on_unavailable must be pass, quarantine, or reject")
+	}
+	switch strings.ToLower(c.Filters.Sandbox.OnMalicious) {
+	case "", "reject", "quarantine", "tag":
+	default:
+		errs = append(errs, "filters.sandbox.on_malicious must be reject, quarantine, or tag")
+	}
+	if c.Filters.Sandbox.Enabled && strings.TrimSpace(c.Filters.Sandbox.URL) == "" {
+		errs = append(errs, "filters.sandbox.url is required when sandbox is enabled")
 	}
 	if c.Server.SMTP.MaxMessageBytes < 0 {
 		errs = append(errs, "server.smtp.max_message_bytes must be >= 0")
@@ -547,5 +643,20 @@ filters:
       - id: body_casino
         weight: 3
         regex: "(?i)\\b(online casino|poker freeroll)\\b"
+  av:
+    enabled: false
+    timeout: 15s
+    on_unavailable: pass
+    on_infected: reject
+    servers: []
+  sandbox:
+    enabled: false
+    url: ""
+    timeout: 30s
+    cache_ttl: 24h
+    on_unavailable: pass
+    on_malicious: reject
+    on_suspicious: tag
+    max_bytes: 10485760
 `
 }

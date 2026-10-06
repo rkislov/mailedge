@@ -644,6 +644,8 @@ func (h *Handler) filtersPage(w http.ResponseWriter, r *http.Request) {
 		h.deps.CfgMu.Lock()
 		oldDNSBL := h.deps.Cfg.Filters.DNSBL
 		oldAnti := h.deps.Cfg.Filters.Antispam
+		oldAV := h.deps.Cfg.Filters.AV
+		oldSB := h.deps.Cfg.Filters.Sandbox
 		switch r.FormValue("action") {
 		case "dnsbl":
 			h.deps.Cfg.Filters.DNSBL.Enabled = r.FormValue("dnsbl_enabled") == "on"
@@ -673,6 +675,59 @@ func (h *Handler) filtersPage(w http.ResponseWriter, r *http.Request) {
 				zones = append(zones, z)
 			}
 			h.deps.Cfg.Filters.DNSBL.Zones = zones
+		case "av":
+			h.deps.Cfg.Filters.AV.Enabled = r.FormValue("av_enabled") == "on"
+			if v := r.FormValue("av_timeout"); v != "" {
+				if d, err := time.ParseDuration(v); err == nil {
+					h.deps.Cfg.Filters.AV.Timeout = d
+				}
+			}
+			h.deps.Cfg.Filters.AV.OnUnavailable = r.FormValue("av_on_unavailable")
+			h.deps.Cfg.Filters.AV.OnInfected = r.FormValue("av_on_infected")
+			var servers []config.ICAPServer
+			for _, line := range strings.Split(r.FormValue("av_servers"), "\n") {
+				line = strings.TrimSpace(line)
+				if line == "" || strings.HasPrefix(line, "#") {
+					continue
+				}
+				parts := strings.Fields(line)
+				s := config.ICAPServer{Addr: parts[0], Service: "avscan"}
+				if len(parts) > 1 {
+					s.Service = parts[1]
+				}
+				for _, p := range parts[2:] {
+					if strings.EqualFold(p, "tls") {
+						s.TLS = true
+					}
+				}
+				servers = append(servers, s)
+			}
+			h.deps.Cfg.Filters.AV.Servers = servers
+		case "sandbox":
+			h.deps.Cfg.Filters.Sandbox.Enabled = r.FormValue("sandbox_enabled") == "on"
+			h.deps.Cfg.Filters.Sandbox.URL = strings.TrimSpace(r.FormValue("sandbox_url"))
+			if v := r.FormValue("sandbox_api_key"); v != "" {
+				h.deps.Cfg.Filters.Sandbox.APIKey = v
+			}
+			if v := r.FormValue("sandbox_timeout"); v != "" {
+				if d, err := time.ParseDuration(v); err == nil {
+					h.deps.Cfg.Filters.Sandbox.Timeout = d
+				}
+			}
+			if v := r.FormValue("sandbox_cache_ttl"); v != "" {
+				if d, err := time.ParseDuration(v); err == nil {
+					h.deps.Cfg.Filters.Sandbox.CacheTTL = d
+				}
+			}
+			if v := r.FormValue("sandbox_max_bytes"); v != "" {
+				if n, err := strconv.ParseInt(v, 10, 64); err == nil {
+					h.deps.Cfg.Filters.Sandbox.MaxBytes = n
+				}
+			}
+			h.deps.Cfg.Filters.Sandbox.AttachmentsOnly = r.FormValue("sandbox_attachments_only") == "on"
+			h.deps.Cfg.Filters.Sandbox.OnUnavailable = r.FormValue("sandbox_on_unavailable")
+			h.deps.Cfg.Filters.Sandbox.OnMalicious = r.FormValue("sandbox_on_malicious")
+			h.deps.Cfg.Filters.Sandbox.OnSuspicious = r.FormValue("sandbox_on_suspicious")
 		case "antispam":
 			h.deps.Cfg.Filters.Antispam.Enabled = r.FormValue("antispam_enabled") == "on"
 			if v := r.FormValue("tag_score"); v != "" {
@@ -713,6 +768,8 @@ func (h *Handler) filtersPage(w http.ResponseWriter, r *http.Request) {
 		if err := h.deps.Cfg.Validate(); err != nil {
 			h.deps.Cfg.Filters.DNSBL = oldDNSBL
 			h.deps.Cfg.Filters.Antispam = oldAnti
+			h.deps.Cfg.Filters.AV = oldAV
+			h.deps.Cfg.Filters.Sandbox = oldSB
 			h.deps.CfgMu.Unlock()
 			pd.Error = err.Error()
 			h.render(w, "filters.html", pd)

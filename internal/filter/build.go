@@ -10,7 +10,9 @@ import (
 func BuildChain(cfg *config.Config) (*Chain, error) {
 	dnsbl := NewDNSBL()
 	anti := NewAntispam()
-	chain := NewChain(dnsbl, anti)
+	av := NewAV()
+	sandbox := NewSandbox()
+	chain := NewChain(dnsbl, anti, av, sandbox)
 	if err := chain.Init(cfg); err != nil {
 		return nil, fmt.Errorf("filter chain: %w", err)
 	}
