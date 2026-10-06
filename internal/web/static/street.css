@@ -1,0 +1,302 @@
+/* Street-wall stage — original composition inspired by stencil/street-art language
+   (Banksy-adjacent: concrete, spray, high contrast, one red accent). Not a copy. */
+
+@font-face {
+  font-family: "StencilWall";
+  src: local("Impact"), local("Haettenschweiler"), local("Arial Black");
+  font-display: swap;
+}
+
+:root {
+  --concrete: #9a958c;
+  --concrete-deep: #6e6a63;
+  --ink: #0c0c0c;
+  --paper: #e8e2d6;
+  --paper-stain: #d4cbb8;
+  --spray-red: #c43c2c;
+  --spray-red-hot: #e84533;
+  --muted: #2a2a28;
+  --chalk: #f2efe8;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  min-height: 100%;
+  color: var(--ink);
+  font-family: "IBM Plex Mono", "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  background: var(--concrete-deep);
+}
+
+/* ——— full-bleed wall ——— */
+.wall {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.wall__concrete {
+  position: absolute;
+  inset: -5%;
+  background:
+    radial-gradient(ellipse 80% 50% at 20% 30%, #b0aaa0 0%, transparent 55%),
+    radial-gradient(ellipse 60% 40% at 80% 70%, #8a857c 0%, transparent 50%),
+    linear-gradient(165deg, #a39e94 0%, #7d7971 45%, #5c5953 100%);
+  filter: contrast(1.05) saturate(0.85);
+  animation: wall-breathe 18s ease-in-out infinite alternate;
+}
+
+.wall__brick {
+  position: absolute;
+  inset: 0;
+  opacity: 0.22;
+  background-image:
+    linear-gradient(90deg, transparent 48%, rgba(0,0,0,.35) 49%, rgba(0,0,0,.35) 51%, transparent 52%),
+    linear-gradient(0deg, transparent 46%, rgba(0,0,0,.28) 48%, rgba(40,30,20,.2) 52%, transparent 54%);
+  background-size: 64px 28px;
+  mix-blend-mode: multiply;
+}
+
+.wall__posters {
+  position: absolute;
+  inset: 0;
+  background:
+    /* torn poster scraps */
+    linear-gradient(12deg, transparent 62%, rgba(232,226,214,.55) 62.2%, rgba(232,226,214,.55) 71%, transparent 71.3%),
+    linear-gradient(-8deg, transparent 18%, rgba(20,20,18,.45) 18.2%, rgba(20,20,18,.45) 27%, transparent 27.3%),
+    linear-gradient(4deg, transparent 78%, rgba(196,60,44,.2) 78.1%, rgba(196,60,44,.15) 84%, transparent 84.2%);
+  mask-image: radial-gradient(ellipse 90% 80% at 50% 50%, #000 40%, transparent 100%);
+}
+
+.wall__spray {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 12% 78%, rgba(12,12,12,.55) 0%, transparent 18%),
+    radial-gradient(circle at 88% 22%, rgba(196,60,44,.28) 0%, transparent 22%),
+    radial-gradient(circle at 70% 60%, rgba(12,12,12,.2) 0%, transparent 15%),
+    radial-gradient(circle at 40% 20%, rgba(242,239,232,.08) 0%, transparent 25%);
+  animation: spray-drift 22s ease-in-out infinite alternate;
+}
+
+.wall__stencil {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.9;
+  filter: url(#none) contrast(1.1);
+  animation: stencil-settle 1.2s ease-out both;
+}
+
+.wall__grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.18;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+
+/* ——— foreground stage ——— */
+.stage {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 1.5rem;
+  padding: clamp(1.5rem, 4vw, 3.5rem);
+  max-width: 920px;
+}
+
+.brand {
+  margin-top: clamp(2rem, 8vh, 5rem);
+}
+
+.brand__mark {
+  margin: 0;
+  font-family: "StencilWall", Impact, sans-serif;
+  font-size: clamp(0.85rem, 2vw, 1rem);
+  letter-spacing: 0.45em;
+  text-transform: uppercase;
+  color: var(--spray-red);
+  text-shadow: 2px 2px 0 rgba(0,0,0,.35);
+  animation: stamp-in 0.7s cubic-bezier(.2,.8,.2,1) both;
+}
+
+.brand__title {
+  margin: 0.15em 0 0;
+  font-family: "StencilWall", Impact, sans-serif;
+  font-size: clamp(4.5rem, 16vw, 8rem);
+  line-height: 0.9;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink);
+  -webkit-text-stroke: 1px rgba(0,0,0,.15);
+  text-shadow:
+    4px 4px 0 rgba(0,0,0,.25),
+    -1px -1px 0 rgba(232,226,214,.3);
+  animation: stamp-in 0.85s cubic-bezier(.2,.8,.2,1) 0.08s both;
+}
+
+.brand__tag {
+  margin: 0.75rem 0 0;
+  max-width: 28ch;
+  font-size: 0.95rem;
+  color: var(--muted);
+  background: rgba(232,226,214,.72);
+  display: inline-block;
+  padding: 0.35rem 0.6rem;
+  transform: rotate(-1.2deg);
+  box-shadow: 3px 3px 0 rgba(0,0,0,.2);
+  animation: stamp-in 1s cubic-bezier(.2,.8,.2,1) 0.16s both;
+}
+
+.stencil-panel {
+  position: relative;
+  background: var(--paper);
+  color: var(--ink);
+  padding: 1.25rem 1.4rem 1.4rem;
+  box-shadow:
+    6px 8px 0 rgba(0,0,0,.35),
+    inset 0 0 40px rgba(80,60,40,.08);
+  clip-path: polygon(
+    0 2%, 2% 0, 97% 0, 100% 3%, 100% 96%, 98% 100%, 3% 100%, 0 97%
+  );
+  transform: rotate(-0.6deg);
+  animation: peel-in 1s cubic-bezier(.2,.8,.2,1) 0.25s both;
+}
+
+.stencil-panel--metrics {
+  transform: rotate(0.5deg);
+  animation-delay: 0.35s;
+  background: linear-gradient(180deg, var(--paper) 0%, var(--paper-stain) 100%);
+}
+
+.stencil-panel__tear {
+  position: absolute;
+  top: -6px;
+  right: 18%;
+  width: 48px;
+  height: 14px;
+  background: var(--concrete);
+  clip-path: polygon(0 40%, 20% 0, 50% 50%, 80% 0, 100% 40%, 100% 100%, 0 100%);
+  opacity: 0.9;
+}
+
+.stencil-panel__h {
+  margin: 1rem 0 0.5rem;
+  font-family: "StencilWall", Impact, sans-serif;
+  font-size: 1.1rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--spray-red);
+}
+
+.badge {
+  display: inline-block;
+  margin: 0 0 1rem;
+  padding: 0.25rem 0.7rem;
+  font-family: "StencilWall", Impact, sans-serif;
+  font-size: 0.95rem;
+  letter-spacing: 0.2em;
+  border: 3px solid var(--ink);
+}
+.badge--live {
+  background: var(--spray-red);
+  color: var(--chalk);
+  animation: pulse-live 2.4s ease-in-out infinite;
+}
+.badge--down {
+  background: var(--ink);
+  color: var(--chalk);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.85rem 1.25rem;
+  margin: 0;
+}
+.facts dt {
+  margin: 0;
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+.facts dd {
+  margin: 0.15rem 0 0;
+  font-size: 1rem;
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.meter {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.meter li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px dashed rgba(0,0,0,.2);
+  font-size: 0.85rem;
+}
+.meter li span { opacity: 0.7; }
+.meter li strong {
+  font-family: "StencilWall", Impact, sans-serif;
+  letter-spacing: 0.04em;
+}
+
+.credit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  margin-top: auto;
+  padding: 1rem 0 0.5rem;
+  font-size: 0.75rem;
+  color: var(--chalk);
+  text-shadow: 0 1px 2px rgba(0,0,0,.5);
+}
+.credit a {
+  color: var(--spray-red-hot);
+  text-decoration: none;
+  border-bottom: 1px solid currentColor;
+}
+.credit a:hover { color: var(--chalk); }
+
+@keyframes stamp-in {
+  from { opacity: 0; transform: translateY(12px) scale(1.04); filter: blur(2px); }
+  to   { opacity: 1; transform: none; filter: none; }
+}
+@keyframes peel-in {
+  from { opacity: 0; transform: translateY(24px) rotate(-2deg); }
+  to   { opacity: 1; }
+}
+@keyframes wall-breathe {
+  from { transform: scale(1); }
+  to   { transform: scale(1.03) translate(-1%, -0.5%); }
+}
+@keyframes spray-drift {
+  from { transform: translate(0, 0); opacity: 1; }
+  to   { transform: translate(-1.5%, 1%); opacity: 0.85; }
+}
+@keyframes stencil-settle {
+  from { opacity: 0; transform: scale(1.02); }
+  to   { opacity: 0.9; transform: none; }
+}
+@keyframes pulse-live {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(196,60,44,.5); }
+  50% { box-shadow: 0 0 0 8px rgba(196,60,44,0); }
+}
+
+@media (max-width: 600px) {
+  .stage { padding: 1.25rem; }
+  .brand__title { font-size: 4rem; }
+}

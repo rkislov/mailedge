@@ -1,0 +1,66 @@
+server:
+  smtp:
+    # Порт 25 по умолчанию (root или CAP_NET_BIND_SERVICE).
+    # Для локальной разработки: ["127.0.0.1:2525"]
+    listen: ["0.0.0.0:25"]
+    # SMTPS (implicit TLS):
+    # implicit_tls_listen: ["0.0.0.0:465"]
+    hostname: mail.example.com
+    max_message_bytes: 26214400   # 25 MiB
+    max_recipients: 100
+    read_timeout: 60s
+    write_timeout: 60s
+    tls: true                     # STARTTLS при наличии сертификата
+  web:
+    listen: "0.0.0.0:8443"
+    tls: true
+  control_socket: ""
+  pid_file: ""
+
+tls:
+  dir: ./data/certs
+  default: default
+  profiles:
+    default:
+      # source: file | acme | selfsigned
+      source: file
+      cert: live/fullchain.pem
+      key: live/privkey.pem
+      # domains: ["mail.example.com"]
+  ca:
+    system: true
+    # extra_files: ["/etc/mgw/ca/corp-root.pem"]
+    # extra_dir: ./data/certs/ca
+  acme:
+    enabled: false
+    email: admin@example.com
+    directory: https://acme-v02.api.letsencrypt.org/directory
+    # staging: https://acme-staging-v02.api.letsencrypt.org/directory
+    challenge: http-01            # http-01 | tls-alpn-01
+    http_bind: ":80"
+    agree_tos: false
+    domains: ["mail.example.com"]
+
+storage:
+  driver: sqlite
+  data_dir: ./data
+  sqlite:
+    path: ./data/mgw.db
+    journal_mode: WAL
+
+relay:
+  # Если задан smart_host — вся исходящая почта идёт туда.
+  # Иначе используется MX-lookup по домену получателя.
+  smart_host: ""
+  helo: mail.example.com
+  workers: 2
+  max_attempts: 8
+  initial_backoff: 30s
+  max_backoff: 1h
+
+logging:
+  level: info          # debug | info | warn | error
+  format: json         # json | text
+
+policy:
+  default_action: accept
