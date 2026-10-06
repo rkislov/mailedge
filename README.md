@@ -7,6 +7,18 @@
 
 ![Статус-страница mgw](docs/status.png)
 
+## Wallpaper pack
+
+Street-art обои (day / night / phone / tablet), SVG-мастер и Retina-размеры до 5K/@3x:
+
+- каталог [`wallpapers/`](wallpapers/) · инструкция в [`wallpapers/README.md`](wallpapers/README.md)
+- сборка: `make wallpapers` (нужен ImageMagick)
+- готовый zip — в [Releases](https://github.com/rkislov/mailedge/releases)
+
+| | |
+|:---:|:---:|
+| ![day](wallpapers/desktop/mgw-day-1920x1080.png) | ![night](wallpapers/desktop/mgw-night-1920x1080.png) |
+
 ## Этап 1 (текущий)
 
 - SMTP-приём (ESMTP, STARTTLS, опционально SMTPS :465)

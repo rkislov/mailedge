@@ -4,3 +4,13 @@
 *.db
 config.yaml
 .DS_Store
+.chrome-tmp/
+
+# Wallpaper Retina exports (regenerate via wallpapers/export.sh)
+wallpapers/desktop/@2x/
+wallpapers/desktop/@3x/
+wallpapers/mobile/@2x/
+wallpapers/mobile/@3x/
+wallpapers/tablet/@2x/
+wallpapers/mgw-wallpaper-pack.zip
+wallpapers/desktop/@2x/mgw-svg-*.png

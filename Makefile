@@ -1,4 +1,4 @@
-.PHONY: build test clean run fmt vet
+.PHONY: build test clean run fmt vet wallpapers
 
 BINARY := mgw
 CMD := ./cmd/mgw
@@ -16,6 +16,11 @@ fmt:
 
 vet:
 	go vet ./...
+
+# Full Retina wallpaper pack → wallpapers/mgw-wallpaper-pack.zip
+wallpapers:
+	chmod +x wallpapers/export.sh
+	./wallpapers/export.sh
 
 clean:
 	rm -f $(BINARY)
