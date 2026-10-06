@@ -4,13 +4,15 @@
 
 **Автор:** Кислов Роман Сергеевич  
 **Лицензия:** [Apache License 2.0](LICENSE)  
-**Релиз:** [v0.2.0](https://github.com/rkislov/mailedge/releases/tag/v0.2.0)
+**Релиз:** [v0.3.0](https://github.com/rkislov/mailedge/releases/tag/v0.3.0)
 
 | | |
 |:---:|:---:|
 | ![Статус-страница](docs/status.png) | ![Dashboard с графиками](docs/dashboard.png) |
 
-![Filters — ICAP AV / sandbox](docs/filters.png)
+| | |
+|:---:|:---:|
+| ![Filters — DMARC / DNSBL / AV](docs/filters.png) | ![Threat Intel](docs/intel.png) |
 
 ## Wallpaper pack
 
@@ -24,39 +26,21 @@ Street-art обои (day / night / phone / tablet), SVG-мастер и Retina-�
 |:---:|:---:|
 | ![day](wallpapers/desktop/mgw-day-1920x1080.png) | ![night](wallpapers/desktop/mgw-night-1920x1080.png) |
 
-## Этап 6 (текущий)
+## Этап 8 (текущий)
 
-ICAP antivirus + HTTP sandbox:
+Inbound SPF / DKIM / DMARC:
 
-- AV через ICAP RESPMOD (failover серверов, `on_unavailable` / `on_infected`)
-- Sandbox HTTP API (`sha256` + base64, кэш вердиктов, attachments-only)
-- Настройка в `/admin/filters`
+- проверка SPF и DKIM, DMARC alignment (relaxed/strict)
+- применение политики `p=` / `sp=` или override `on_fail`
+- заголовок `Authentication-Results` + UI в `/admin/filters`
 
-## Этап 5
+## Этап 7
 
-Policy Engine + DNSBL + встроенный антиспам:
+Threat Intelligence:
 
-- правила политик (YAML / UI): from/to/IP/CIDR/subject/size → accept/reject/quarantine/discard/tag/hold
-- DNSBL-зоны с whitelist и кэшем
-- scoring-антиспам с порогами tag / quarantine / reject
-
-## Этап 2
-
-Веб-админка (`/admin` → `/setup` при первом запуске):
-
-- Settings — порты SMTP/Web, hostname, relay, ACME, logging
-- Certificates — self-signed, import, УЦ, ACME issue
-- Domains — локальные домены, маршруты next-hop, aliases/forward
-- DKIM — keygen, DNS TXT, подпись outbound
-- Dashboard — live KPI и графики (письма, CPU/RSS, очередь)
-
-## Этап 1
-
-- SMTP-приём (ESMTP, STARTTLS, опционально SMTPS :465)
-- MIME-разбор, дисковая очередь, relay
-- YAML-конфиг + CLI
-- Управление сертификатами, УЦ и ACME-клиент
-- `/healthz`, статус-страница
+- локальное IOC-хранилище (ip / domain / url / hash)
+- фиды ThreatFox и qfeed с периодическим refresh
+- фильтр в цепочке + UI `/admin/intel` + CLI `mgw ioc`
 
 ## Быстрый старт
 
@@ -111,6 +95,7 @@ mgw cert list|show|import|delete|selfsigned
 mgw cert ca list|add|remove
 mgw cert acme status|issue|renew
 mgw test mail file.eml [--from] [--to] [--ip] [--json]
+mgw ioc list|add|delete|lookup|import|export|refresh
 ```
 
 ## Конфигурация

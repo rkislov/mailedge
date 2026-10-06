@@ -21,6 +21,7 @@ import (
 	dkimkeys "github.com/rkislov/mailedge/internal/dkim"
 	"github.com/rkislov/mailedge/internal/domains"
 	"github.com/rkislov/mailedge/internal/filter"
+	"github.com/rkislov/mailedge/internal/intel"
 	"github.com/rkislov/mailedge/internal/metrics"
 	"github.com/rkislov/mailedge/internal/policy"
 	"github.com/rkislov/mailedge/internal/quarantine"
@@ -51,6 +52,8 @@ type Deps struct {
 	Policy     *policy.Engine
 	Filters    *filter.Chain
 	Quarantine *quarantine.Store
+	IOC        *intel.Store
+	Feeder     *intel.Feeder
 	Log        *slog.Logger
 	Started    time.Time
 }
@@ -115,6 +118,8 @@ func (h *Handler) adminRouter(w http.ResponseWriter, r *http.Request) {
 		h.policiesPage(w, r)
 	case p == "/filters" || strings.HasPrefix(p, "/filters"):
 		h.filtersPage(w, r)
+	case p == "/intel" || strings.HasPrefix(p, "/intel"):
+		h.intelPage(w, r)
 	default:
 		http.NotFound(w, r)
 	}
@@ -153,6 +158,9 @@ type pageData struct {
 	Aliases    []domains.Alias
 	DKIMKeys   []dkimkeys.Key
 	DNSHints   map[int64]string
+	IOCs       []intel.IOC
+	IOCStats   map[string]int
+	IOCCount   int
 }
 
 func (h *Handler) base(r *http.Request, title, active string) pageData {
@@ -646,7 +654,15 @@ func (h *Handler) filtersPage(w http.ResponseWriter, r *http.Request) {
 		oldAnti := h.deps.Cfg.Filters.Antispam
 		oldAV := h.deps.Cfg.Filters.AV
 		oldSB := h.deps.Cfg.Filters.Sandbox
+		oldDMARC := h.deps.Cfg.Filters.DMARC
 		switch r.FormValue("action") {
+		case "dmarc":
+			h.deps.Cfg.Filters.DMARC.Enabled = r.FormValue("dmarc_enabled") == "on"
+			h.deps.Cfg.Filters.DMARC.HonorPolicy = r.FormValue("dmarc_honor_policy") == "on"
+			h.deps.Cfg.Filters.DMARC.AddHeader = r.FormValue("dmarc_add_header") == "on"
+			h.deps.Cfg.Filters.DMARC.AuthservID = strings.TrimSpace(r.FormValue("dmarc_authserv_id"))
+			h.deps.Cfg.Filters.DMARC.OnFail = r.FormValue("dmarc_on_fail")
+			h.deps.Cfg.Filters.DMARC.OnTempFail = r.FormValue("dmarc_on_tempfail")
 		case "dnsbl":
 			h.deps.Cfg.Filters.DNSBL.Enabled = r.FormValue("dnsbl_enabled") == "on"
 			if v := r.FormValue("cache_ttl"); v != "" {
@@ -770,6 +786,7 @@ func (h *Handler) filtersPage(w http.ResponseWriter, r *http.Request) {
 			h.deps.Cfg.Filters.Antispam = oldAnti
 			h.deps.Cfg.Filters.AV = oldAV
 			h.deps.Cfg.Filters.Sandbox = oldSB
+			h.deps.Cfg.Filters.DMARC = oldDMARC
 			h.deps.CfgMu.Unlock()
 			pd.Error = err.Error()
 			h.render(w, "filters.html", pd)
@@ -786,6 +803,106 @@ func (h *Handler) filtersPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	h.render(w, "filters.html", pd)
+}
+
+func (h *Handler) intelPage(w http.ResponseWriter, r *http.Request) {
+	pd := h.base(r, "Threat Intel", "intel")
+	ctx := r.Context()
+	if r.Method == http.MethodPost && h.deps.IOC != nil {
+		switch r.FormValue("action") {
+		case "settings":
+			h.deps.CfgMu.Lock()
+			old := h.deps.Cfg.Filters.Intel
+			h.deps.Cfg.Filters.Intel.Enabled = r.FormValue("intel_enabled") == "on"
+			h.deps.Cfg.Filters.Intel.OnHit = r.FormValue("on_hit")
+			if v := r.FormValue("refresh_interval"); v != "" {
+				if d, err := time.ParseDuration(v); err == nil {
+					h.deps.Cfg.Filters.Intel.RefreshInterval = d
+				}
+			}
+			h.deps.Cfg.Filters.Intel.ThreatFox.Enabled = r.FormValue("threatfox_enabled") == "on"
+			if v := r.FormValue("threatfox_days"); v != "" {
+				if n, err := strconv.Atoi(v); err == nil {
+					h.deps.Cfg.Filters.Intel.ThreatFox.Days = n
+				}
+			}
+			h.deps.Cfg.Filters.Intel.QFeed.Enabled = r.FormValue("qfeed_enabled") == "on"
+			h.deps.Cfg.Filters.Intel.QFeed.URL = strings.TrimSpace(r.FormValue("qfeed_url"))
+			if v := r.FormValue("qfeed_auth"); v != "" {
+				h.deps.Cfg.Filters.Intel.QFeed.AuthHeader = v
+			}
+			config.ApplyDefaults(h.deps.Cfg)
+			if err := h.deps.Cfg.Validate(); err != nil {
+				h.deps.Cfg.Filters.Intel = old
+				h.deps.CfgMu.Unlock()
+				pd.Error = err.Error()
+			} else {
+				err := config.Save(h.deps.CfgPath, h.deps.Cfg)
+				h.reloadPolicyFilters()
+				h.deps.CfgMu.Unlock()
+				if err != nil {
+					pd.Error = err.Error()
+				} else {
+					pd = h.base(r, "Threat Intel", "intel")
+					pd.Flash = "настройки сохранены"
+				}
+			}
+		case "add":
+			_, err := h.deps.IOC.Upsert(ctx, intel.IOC{
+				Type:   r.FormValue("type"),
+				Value:  r.FormValue("value"),
+				Threat: r.FormValue("threat"),
+				Action: r.FormValue("ioc_action"),
+				Source: "manual",
+			})
+			if err != nil {
+				pd.Error = err.Error()
+			} else {
+				pd.Flash = "IOC добавлен"
+			}
+		case "delete":
+			id, _ := strconv.ParseInt(r.FormValue("id"), 10, 64)
+			_ = h.deps.IOC.Delete(ctx, id)
+			pd.Flash = "удалено"
+		case "toggle":
+			id, _ := strconv.ParseInt(r.FormValue("id"), 10, 64)
+			en := r.FormValue("enabled") == "1"
+			_ = h.deps.IOC.SetEnabled(ctx, id, en)
+			pd.Flash = "обновлено"
+		case "refresh":
+			if h.deps.Feeder == nil {
+				pd.Error = "feeder unavailable"
+			} else {
+				n, err := h.deps.Feeder.Refresh(ctx)
+				if err != nil {
+					pd.Error = err.Error()
+				} else {
+					pd.Flash = fmt.Sprintf("обновлено: %d IOC", n)
+				}
+			}
+		case "import":
+			file, _, err := r.FormFile("file")
+			if err != nil {
+				pd.Error = err.Error()
+			} else {
+				defer file.Close()
+				n, err := h.deps.IOC.ImportJSON(ctx, file)
+				if err != nil {
+					pd.Error = err.Error()
+				} else {
+					pd.Flash = fmt.Sprintf("импорт: %d", n)
+				}
+			}
+		}
+	}
+	if h.deps.IOC != nil {
+		q := r.URL.Query().Get("q")
+		typ := r.URL.Query().Get("type")
+		pd.IOCs, _ = h.deps.IOC.List(ctx, typ, "", q, 100)
+		pd.IOCStats, _ = h.deps.IOC.StatsBySource(ctx)
+		pd.IOCCount, _ = h.deps.IOC.Count(ctx)
+	}
+	h.render(w, "intel.html", pd)
 }
 
 func clonePolicy(p config.PolicyConfig) config.PolicyConfig {

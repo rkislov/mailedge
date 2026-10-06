@@ -35,9 +35,11 @@ type Message struct {
 
 // Result is the outcome of a filter or policy evaluation.
 type Result struct {
-	Action  string            `json:"action"` // accept, reject, quarantine, discard, tag, hold
-	Score   float64           `json:"score,omitempty"`
-	Tags    []string          `json:"tags,omitempty"`
-	Reason  string            `json:"reason,omitempty"`
-	Details map[string]string `json:"details,omitempty"`
+	Action         string            `json:"action"` // accept, reject, quarantine, discard, tag, hold
+	Score          float64           `json:"score,omitempty"`
+	Tags           []string          `json:"tags,omitempty"`
+	Reason         string            `json:"reason,omitempty"`
+	Details        map[string]string `json:"details,omitempty"`
+	PrependHeaders []string          `json:"-"` // "Name: value" lines to prepend
 }
+

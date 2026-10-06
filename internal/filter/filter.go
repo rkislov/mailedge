@@ -68,6 +68,9 @@ func (c *Chain) Process(ctx context.Context, msg *mailmsg.Message, data []byte) 
 		if res.Reason != "" {
 			final.Reason = res.Reason
 		}
+		if len(res.PrependHeaders) > 0 {
+			final.PrependHeaders = append(final.PrependHeaders, res.PrependHeaders...)
+		}
 		for k, v := range res.Details {
 			final.Details[k] = v
 		}

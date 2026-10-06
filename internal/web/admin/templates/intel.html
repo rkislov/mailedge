@@ -1,0 +1,147 @@
+{{define "intel.html"}}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Threat Intel — mgw</title>
+  <link rel="stylesheet" href="/static/street.css">
+  <link rel="stylesheet" href="/static/admin.css">
+</head>
+<body class="admin-body">
+  <div class="wall" aria-hidden="true"><div class="wall__concrete"></div><div class="wall__brick"></div><div class="wall__grain"></div></div>
+  <div class="admin-shell">
+    {{template "nav" .}}
+    <main class="admin-main">
+      {{if .Flash}}<p class="flash flash--ok">{{.Flash}}</p>{{end}}
+      {{if .Error}}<p class="flash flash--err">{{.Error}}</p>{{end}}
+      <header class="admin-head"><h1>Threat Intel</h1><p>IOC · ThreatFox · qfeed</p></header>
+
+      <div class="kpi-row">
+        <div class="kpi"><span>indicators</span><strong>{{.IOCCount}}</strong></div>
+        <div class="kpi"><span>filter</span><strong>{{if .Cfg.Filters.Intel.Enabled}}ON{{else}}OFF{{end}}</strong></div>
+        <div class="kpi"><span>on hit</span><strong>{{.Cfg.Filters.Intel.OnHit}}</strong></div>
+        <div class="kpi"><span>refresh</span><strong>{{.Cfg.Filters.Intel.RefreshInterval}}</strong></div>
+      </div>
+
+      <div class="filter-grid">
+      <form method="post" class="stack-form stencil-panel">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <input type="hidden" name="action" value="settings">
+        <h2 class="stencil-panel__h">Settings</h2>
+        <p class="panel-lead">Сопоставление писем с локальными IOC и внешними фидами.</p>
+        <div class="status-row">
+          {{if .Cfg.Filters.Intel.Enabled}}<span class="pill pill--on">enabled</span>{{else}}<span class="pill pill--off">disabled</span>{{end}}
+          {{if .Cfg.Filters.Intel.ThreatFox.Enabled}}<span class="pill pill--on">ThreatFox</span>{{else}}<span class="pill pill--off">ThreatFox</span>{{end}}
+          {{if .Cfg.Filters.Intel.QFeed.Enabled}}<span class="pill pill--on">qfeed</span>{{else}}<span class="pill pill--off">qfeed</span>{{end}}
+        </div>
+        <label class="check"><input type="checkbox" name="intel_enabled" {{if .Cfg.Filters.Intel.Enabled}}checked{{end}}> enabled</label>
+        <div class="form-grid">
+          <label>on hit
+            <select name="on_hit">
+              <option value="reject" {{if eq .Cfg.Filters.Intel.OnHit "reject"}}selected{{end}}>reject</option>
+              <option value="quarantine" {{if eq .Cfg.Filters.Intel.OnHit "quarantine"}}selected{{end}}>quarantine</option>
+              <option value="tag" {{if eq .Cfg.Filters.Intel.OnHit "tag"}}selected{{end}}>tag</option>
+            </select>
+          </label>
+          <label>refresh interval <input name="refresh_interval" value="{{.Cfg.Filters.Intel.RefreshInterval}}"></label>
+        </div>
+        <label class="check"><input type="checkbox" name="threatfox_enabled" {{if .Cfg.Filters.Intel.ThreatFox.Enabled}}checked{{end}}> ThreatFox</label>
+        <label>ThreatFox days <input name="threatfox_days" type="number" value="{{.Cfg.Filters.Intel.ThreatFox.Days}}"></label>
+        <label class="check"><input type="checkbox" name="qfeed_enabled" {{if .Cfg.Filters.Intel.QFeed.Enabled}}checked{{end}}> qfeed</label>
+        <label>qfeed URL <input name="qfeed_url" value="{{.Cfg.Filters.Intel.QFeed.URL}}"></label>
+        <label>qfeed auth header <input name="qfeed_auth" value="{{.Cfg.Filters.Intel.QFeed.AuthHeader}}" placeholder="Bearer …"></label>
+        <div class="btn-row">
+          <button type="submit">Сохранить</button>
+        </div>
+      </form>
+
+      <div class="stack-form">
+        <form method="post" class="stencil-panel stack-form">
+          <input type="hidden" name="csrf" value="{{.CSRF}}">
+          <input type="hidden" name="action" value="refresh">
+          <h2 class="stencil-panel__h">Feeds</h2>
+          <p class="panel-lead">Принудительно обновить ThreatFox / qfeed прямо сейчас.</p>
+          <button type="submit" class="btn-ghost">Refresh feeds now</button>
+        </form>
+
+        {{if .IOCStats}}
+        <section class="stencil-panel">
+          <h2 class="stencil-panel__h">By source</h2>
+          <ul class="meter">
+            {{range $k,$v := .IOCStats}}<li><span>{{$k}}</span><strong>{{$v}}</strong></li>{{end}}
+          </ul>
+        </section>
+        {{end}}
+
+        <form method="post" class="stack-form stencil-panel">
+          <input type="hidden" name="csrf" value="{{.CSRF}}">
+          <input type="hidden" name="action" value="add">
+          <h2 class="stencil-panel__h">Add IOC</h2>
+          <div class="form-grid">
+            <label>type
+              <select name="type">
+                <option value="ip">ip</option>
+                <option value="domain">domain</option>
+                <option value="url">url</option>
+                <option value="hash">hash</option>
+              </select>
+            </label>
+            <label>action override
+              <select name="ioc_action">
+                <option value="">(default)</option>
+                <option value="reject">reject</option>
+                <option value="quarantine">quarantine</option>
+                <option value="tag">tag</option>
+              </select>
+            </label>
+            <label class="span-2">value <input name="value" required></label>
+            <label class="span-2">threat <input name="threat"></label>
+          </div>
+          <button type="submit">Добавить</button>
+        </form>
+      </div>
+
+      <form method="post" enctype="multipart/form-data" class="stack-form stencil-panel span-2">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <input type="hidden" name="action" value="import">
+        <h2 class="stencil-panel__h">Import JSON</h2>
+        <label>file <input type="file" name="file" accept="application/json,.json" required></label>
+        <button type="submit">Import</button>
+      </form>
+
+      <section class="stencil-panel span-2">
+        <h2 class="stencil-panel__h">IOCs</h2>
+        {{if .IOCs}}
+        <ul class="meter">
+          {{range .IOCs}}
+          <li>
+            <span>{{.Type}} {{.Value}} {{if .Threat}}· {{.Threat}}{{end}} [{{.Source}}]{{if not .Enabled}} OFF{{end}}</span>
+            <strong>
+              <form method="post" class="inline">
+                <input type="hidden" name="csrf" value="{{$.CSRF}}">
+                <input type="hidden" name="action" value="toggle">
+                <input type="hidden" name="id" value="{{.ID}}">
+                <input type="hidden" name="enabled" value="{{if .Enabled}}0{{else}}1{{end}}">
+                <button type="submit">{{if .Enabled}}off{{else}}on{{end}}</button>
+              </form>
+              <form method="post" class="inline">
+                <input type="hidden" name="csrf" value="{{$.CSRF}}">
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="id" value="{{.ID}}">
+                <button type="submit">del</button>
+              </form>
+            </strong>
+          </li>
+          {{end}}
+        </ul>
+        {{else}}
+        <p class="muted">пусто — добавьте IOC или включите фиды</p>
+        {{end}}
+      </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
+{{end}}

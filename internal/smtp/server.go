@@ -163,6 +163,9 @@ func (s *session) Data(r io.Reader) error {
 		if err != nil {
 			return err
 		}
+		if fres != nil && len(fres.PrependHeaders) > 0 {
+			data = filter.PrependHeaders(data, fres.PrependHeaders)
+		}
 		if handled, err := s.applyResult(msg, data, fres, "filter"); handled || err != nil {
 			return err
 		}
