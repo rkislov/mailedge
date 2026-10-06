@@ -1,0 +1,24 @@
+{{define "login.html"}}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Login — mgw</title>
+  <link rel="stylesheet" href="/static/street.css">
+  <link rel="stylesheet" href="/static/admin.css">
+</head>
+<body class="admin-body">
+  <div class="wall" aria-hidden="true"><div class="wall__concrete"></div><div class="wall__brick"></div><div class="wall__grain"></div></div>
+  <main class="auth-panel">
+    <h1>mgw login</h1>
+    {{if .Error}}<p class="flash flash--err">{{.Error}}</p>{{end}}
+    <form method="post" action="/login" class="stack-form">
+      <label>Логин <input name="username" required autocomplete="username"></label>
+      <label>Пароль <input type="password" name="password" required autocomplete="current-password"></label>
+      <button type="submit">Войти</button>
+    </form>
+  </main>
+</body>
+</html>
+{{end}}

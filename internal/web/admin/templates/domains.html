@@ -1,0 +1,96 @@
+{{define "domains.html"}}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Domains — mgw</title>
+  <link rel="stylesheet" href="/static/street.css">
+  <link rel="stylesheet" href="/static/admin.css">
+</head>
+<body class="admin-body">
+  <div class="wall" aria-hidden="true"><div class="wall__concrete"></div><div class="wall__brick"></div><div class="wall__grain"></div></div>
+  <div class="admin-shell">
+    {{template "nav" .}}
+    <main class="admin-main">
+      {{if .Flash}}<p class="flash flash--ok">{{.Flash}}</p>{{end}}
+      {{if .Error}}<p class="flash flash--err">{{.Error}}</p>{{end}}
+      <header class="admin-head"><h1>Domains &amp; Forward</h1><p>локальные домены, маршруты, aliases</p></header>
+
+      <section class="stencil-panel">
+        <h2 class="stencil-panel__h">домены</h2>
+        <ul class="meter">
+          {{range .Domains}}
+          <li>
+            <span>{{.Name}} · accept={{yesno .AcceptMail}}{{if .CatchAll}} · catch-all={{.CatchAll}}{{end}}</span>
+            <form method="post" class="inline">
+              <input type="hidden" name="csrf" value="{{$.CSRF}}">
+              <input type="hidden" name="action" value="del_domain">
+              <input type="hidden" name="id" value="{{.ID}}">
+              <button type="submit">del</button>
+            </form>
+          </li>
+          {{else}}<li><span>(пусто — принимаются все домены)</span><strong></strong></li>{{end}}
+        </ul>
+        <form method="post" class="stack-form">
+          <input type="hidden" name="csrf" value="{{.CSRF}}">
+          <input type="hidden" name="action" value="add_domain">
+          <label>name <input name="name" required placeholder="example.com"></label>
+          <label>catch-all <input name="catch_all" placeholder="postmaster@example.com"></label>
+          <label class="check"><input type="checkbox" name="accept" checked> accept mail</label>
+          <button type="submit">Добавить домен</button>
+        </form>
+      </section>
+
+      <section class="stencil-panel">
+        <h2 class="stencil-panel__h">маршруты (domain → next-hop)</h2>
+        <ul class="meter">
+          {{range .Routes}}
+          <li>
+            <span>{{.Domain}} → {{.NextHop}}</span>
+            <form method="post" class="inline">
+              <input type="hidden" name="csrf" value="{{$.CSRF}}">
+              <input type="hidden" name="action" value="del_route">
+              <input type="hidden" name="id" value="{{.ID}}">
+              <button type="submit">del</button>
+            </form>
+          </li>
+          {{else}}<li><span>(пусто)</span><strong></strong></li>{{end}}
+        </ul>
+        <form method="post" class="stack-form">
+          <input type="hidden" name="csrf" value="{{.CSRF}}">
+          <input type="hidden" name="action" value="add_route">
+          <label>domain <input name="domain" required></label>
+          <label>next hop <input name="next_hop" required placeholder="smtp.internal:25"></label>
+          <button type="submit">Сохранить маршрут</button>
+        </form>
+      </section>
+
+      <section class="stencil-panel">
+        <h2 class="stencil-panel__h">aliases / forward</h2>
+        <ul class="meter">
+          {{range .Aliases}}
+          <li>
+            <span>{{.Address}} → {{join .Destinations ", "}}</span>
+            <form method="post" class="inline">
+              <input type="hidden" name="csrf" value="{{$.CSRF}}">
+              <input type="hidden" name="action" value="del_alias">
+              <input type="hidden" name="id" value="{{.ID}}">
+              <button type="submit">del</button>
+            </form>
+          </li>
+          {{else}}<li><span>(пусто)</span><strong></strong></li>{{end}}
+        </ul>
+        <form method="post" class="stack-form">
+          <input type="hidden" name="csrf" value="{{.CSRF}}">
+          <input type="hidden" name="action" value="add_alias">
+          <label>address <input name="address" required placeholder="info@example.com"></label>
+          <label>destinations <input name="destinations" required placeholder="a@x.com, b@y.com"></label>
+          <button type="submit">Сохранить alias</button>
+        </form>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
+{{end}}

@@ -13,28 +13,38 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rkislov/mailedge/internal/auth"
 	"github.com/rkislov/mailedge/internal/certs"
 	"github.com/rkislov/mailedge/internal/config"
+	dkimkeys "github.com/rkislov/mailedge/internal/dkim"
+	"github.com/rkislov/mailedge/internal/domains"
 	"github.com/rkislov/mailedge/internal/filter"
 	"github.com/rkislov/mailedge/internal/logging"
 	"github.com/rkislov/mailedge/internal/metrics"
 	"github.com/rkislov/mailedge/internal/policy"
+	"github.com/rkislov/mailedge/internal/quarantine"
 	"github.com/rkislov/mailedge/internal/queue"
 	"github.com/rkislov/mailedge/internal/relay"
 	smtpserver "github.com/rkislov/mailedge/internal/smtp"
 	"github.com/rkislov/mailedge/internal/storage"
+	"github.com/rkislov/mailedge/internal/storage/sqlite"
 	"github.com/rkislov/mailedge/internal/version"
 	"github.com/rkislov/mailedge/internal/web"
+	"github.com/rkislov/mailedge/internal/web/admin"
 )
 
 // App is the process-level composition root.
 type App struct {
 	cfg     *config.Config
+	cfgPath string
+	cfgMu   sync.RWMutex
 	log     *slog.Logger
 	spool   *queue.Spool
 	store   storage.Storage
+	db      *sqlite.DB
 	certs   *certs.Manager
 	metrics *metrics.Registry
+	history *metrics.History
 	smtp    *smtpserver.Server
 	relay   *relay.Worker
 	httpSrv *http.Server
@@ -59,24 +69,36 @@ type Status struct {
 }
 
 // New builds an App from config (does not start listeners).
-func New(cfg *config.Config) (*App, error) {
+func New(cfg *config.Config, cfgPath string) (*App, error) {
 	log := logging.Setup(cfg.Logging.Level, cfg.Logging.Format)
 
 	if err := os.MkdirAll(cfg.Storage.DataDir, 0o750); err != nil {
 		return nil, fmt.Errorf("data dir: %w", err)
 	}
 
+	dbPath := cfg.Storage.SQLite.Path
+	if dbPath == "" {
+		dbPath = filepath.Join(cfg.Storage.DataDir, "mgw.db")
+	}
+	db, err := sqlite.Open(dbPath)
+	if err != nil {
+		return nil, fmt.Errorf("sqlite: %w", err)
+	}
+
 	certMgr, err := certs.New(cfg, log)
 	if err != nil {
+		_ = db.Close()
 		return nil, fmt.Errorf("certs: %w", err)
 	}
 
 	spool, err := queue.New(cfg.Storage.DataDir, log)
 	if err != nil {
+		_ = db.Close()
 		return nil, err
 	}
 	n, err := spool.RecoverActive()
 	if err != nil {
+		_ = db.Close()
 		return nil, fmt.Errorf("recover active: %w", err)
 	}
 	if n > 0 {
@@ -85,17 +107,42 @@ func New(cfg *config.Config) (*App, error) {
 
 	store, err := storage.Open(cfg.Storage.Driver)
 	if err != nil {
+		_ = db.Close()
 		return nil, err
+	}
+
+	authSvc := auth.New(db.SQL())
+	domStore := domains.NewStore(db.SQL())
+	dkimMgr, err := dkimkeys.New(db.SQL(), cfg.Storage.DataDir)
+	if err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("dkim: %w", err)
 	}
 
 	met := metrics.New()
+	hist := metrics.NewHistory(met)
+	hist.SetQueue(func() map[string]int {
+		s, err := spool.Stats()
+		if err != nil {
+			return nil
+		}
+		return s
+	})
 	pol := policy.New(cfg)
-	chain := filter.NewChain(&filter.Noop{})
-	if err := chain.Init(cfg); err != nil {
+	chain, err := filter.BuildChain(cfg)
+	if err != nil {
+		_ = db.Close()
 		return nil, err
+	}
+	qstore, err := quarantine.New(cfg.Storage.DataDir)
+	if err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("quarantine: %w", err)
 	}
 
 	backend := smtpserver.NewBackend(cfg, spool, pol, chain, met, log)
+	backend.SetDomains(domStore)
+	backend.SetQuarantine(qstore)
 	smtpSrv := smtpserver.New(cfg, backend, log)
 
 	tlsCfg := certMgr.ServerTLSConfig()
@@ -113,13 +160,54 @@ func New(cfg *config.Config) (*App, error) {
 	}
 
 	rel := relay.New(cfg, spool, met, log)
+	rel.SetRoutes(domStore)
+	rel.SetSigner(dkimMgr)
+
+	app := &App{
+		cfg:     cfg,
+		cfgPath: cfgPath,
+		log:     log,
+		spool:   spool,
+		store:   store,
+		db:      db,
+		certs:   certMgr,
+		metrics: met,
+		history: hist,
+		smtp:    smtpSrv,
+		relay:   rel,
+		started: time.Now().UTC(),
+	}
 
 	webHandler, err := web.NewHandler(spool, met, cfg.Server.SMTP.Hostname)
 	if err != nil {
+		_ = db.Close()
 		return nil, fmt.Errorf("web: %w", err)
 	}
+	adminHandler, err := admin.New(admin.Deps{
+		CfgPath:     cfgPath,
+		Cfg:         cfg,
+		CfgMu:       &app.cfgMu,
+		Auth:        authSvc,
+		Certs:       certMgr,
+		Domains:     domStore,
+		DKIM:        dkimMgr,
+		Spool:       spool,
+		Metrics:     met,
+		History:     hist,
+		Policy:      pol,
+		Filters:     chain,
+		Quarantine:  qstore,
+		Log:         log,
+		Started:     app.started,
+	})
+	if err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("admin: %w", err)
+	}
+
 	mux := http.NewServeMux()
 	webHandler.Mount(mux)
+	adminHandler.Mount(mux)
 
 	httpSrv := &http.Server{
 		Addr:              cfg.Server.Web.Listen,
@@ -128,22 +216,13 @@ func New(cfg *config.Config) (*App, error) {
 	}
 	if cfg.Server.Web.TLS {
 		if tlsCfg == nil {
+			_ = db.Close()
 			return nil, fmt.Errorf("server.web.tls=true, но сертификат не найден (см. tls.profiles / mgw cert)")
 		}
 		httpSrv.TLSConfig = tlsCfg.Clone()
 	}
-
-	return &App{
-		cfg:     cfg,
-		log:     log,
-		spool:   spool,
-		store:   store,
-		certs:   certMgr,
-		metrics: met,
-		smtp:    smtpSrv,
-		relay:   rel,
-		httpSrv: httpSrv,
-	}, nil
+	app.httpSrv = httpSrv
+	return app, nil
 }
 
 // Run starts all services and blocks until ctx is cancelled.
@@ -163,6 +242,10 @@ func (a *App) Run(ctx context.Context) error {
 
 	if err := a.certs.StartACMEHTTP(); err != nil {
 		a.log.Warn("acme http", "err", err)
+	}
+
+	if a.history != nil {
+		a.history.Start(ctx.Done())
 	}
 
 	a.relay.Start(ctx)
@@ -190,6 +273,7 @@ func (a *App) Run(ctx context.Context) error {
 		"version", version.Version,
 		"smtp", a.cfg.Server.SMTP.Listen,
 		"web", a.cfg.Server.Web.Listen,
+		"admin", "/admin",
 		"tls_cert", a.certs.Certificate() != nil,
 	)
 
@@ -224,6 +308,9 @@ func (a *App) Shutdown(ctx context.Context) error {
 		a.log.Info("parked active messages on shutdown", "count", n)
 	}
 	_ = a.store.Close()
+	if a.db != nil {
+		_ = a.db.Close()
+	}
 	a.log.Info("stopped")
 	return nil
 }
@@ -251,7 +338,7 @@ func (a *App) Snapshot() Status {
 	return st
 }
 
-// WriteStatusJSON writes status for CLI `server status` via a status file or stdout helper.
+// WriteStatusJSON writes status for CLI `server status`.
 func WriteStatusJSON(w interface{ Write([]byte) (int, error) }, st Status) error {
 	b, err := json.MarshalIndent(st, "", "  ")
 	if err != nil {

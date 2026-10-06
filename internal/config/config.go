@@ -19,6 +19,7 @@ type Config struct {
 	Relay   RelayConfig   `yaml:"relay"`
 	Logging LoggingConfig `yaml:"logging"`
 	Policy  PolicyConfig  `yaml:"policy"`
+	Filters FiltersConfig `yaml:"filters"`
 }
 
 type ServerConfig struct {
@@ -130,7 +131,74 @@ type LoggingConfig struct {
 }
 
 type PolicyConfig struct {
-	DefaultAction string `yaml:"default_action"`
+	DefaultAction string       `yaml:"default_action"`
+	Rules         []PolicyRule `yaml:"rules"`
+}
+
+// PolicyRule is one ordered policy decision.
+type PolicyRule struct {
+	ID       string         `yaml:"id"`
+	Enabled  *bool          `yaml:"enabled"`
+	Priority int            `yaml:"priority"`
+	Action   string         `yaml:"action"` // accept, reject, quarantine, discard, tag, hold
+	Reason   string         `yaml:"reason"`
+	Tag      string         `yaml:"tag"`
+	Match    PolicyMatch    `yaml:"match"`
+}
+
+// PolicyRuleEnabled returns whether the rule is active (default true).
+func (r PolicyRule) PolicyRuleEnabled() bool {
+	if r.Enabled == nil {
+		return true
+	}
+	return *r.Enabled
+}
+
+// PolicyMatch conditions (AND). Empty fields are ignored.
+type PolicyMatch struct {
+	From      string `yaml:"from"`       // exact or *glob
+	To        string `yaml:"to"`         // exact or *glob (any recipient)
+	RemoteIP  string `yaml:"remote_ip"`  // IP or CIDR
+	Helo      string `yaml:"helo"`       // exact or *glob
+	SubjectRe string `yaml:"subject_re"` // regex
+	MinSize   int64  `yaml:"min_size"`
+	MaxSize   int64  `yaml:"max_size"` // 0 = no max
+	Direction string `yaml:"direction"` // inbound|outbound|internal (optional hint)
+}
+
+// FiltersConfig configures the filter chain.
+type FiltersConfig struct {
+	DNSBL    DNSBLConfig    `yaml:"dnsbl"`
+	Antispam AntispamConfig `yaml:"antispam"`
+}
+
+type DNSBLConfig struct {
+	Enabled   bool          `yaml:"enabled"`
+	Zones     []DNSBLZone   `yaml:"zones"`
+	Whitelist []string      `yaml:"whitelist"` // IP/CIDR
+	CacheTTL  time.Duration `yaml:"cache_ttl"`
+}
+
+type DNSBLZone struct {
+	Zone   string  `yaml:"zone"`
+	Weight float64 `yaml:"weight"`
+	Action string  `yaml:"action"` // score (default), reject, quarantine, tag
+}
+
+type AntispamConfig struct {
+	Enabled          bool           `yaml:"enabled"`
+	TagScore         float64        `yaml:"tag_score"`
+	QuarantineScore  float64        `yaml:"quarantine_score"`
+	RejectScore      float64        `yaml:"reject_score"`
+	Rules            []AntispamRule `yaml:"rules"`
+}
+
+type AntispamRule struct {
+	ID     string  `yaml:"id"`
+	Weight float64 `yaml:"weight"`
+	Header string  `yaml:"header"` // empty = body
+	Regex  string  `yaml:"regex"`
+	URI    bool    `yaml:"uri"` // match URLs in body
 }
 
 var envPattern = regexp.MustCompile(`\$\{([A-Za-z_][A-Za-z0-9_]*)\}`)
@@ -188,6 +256,13 @@ func expandEnv(s string) string {
 }
 
 func (c *Config) applyDefaults() {
+	applyDefaults(c)
+}
+
+// ApplyDefaults fills zero-value fields with defaults (exported for admin UI).
+func ApplyDefaults(c *Config) { applyDefaults(c) }
+
+func applyDefaults(c *Config) {
 	if len(c.Server.SMTP.Listen) == 0 {
 		c.Server.SMTP.Listen = []string{"0.0.0.0:25"}
 	}
@@ -260,6 +335,23 @@ func (c *Config) applyDefaults() {
 	if c.Policy.DefaultAction == "" {
 		c.Policy.DefaultAction = "accept"
 	}
+	if c.Filters.DNSBL.CacheTTL == 0 {
+		c.Filters.DNSBL.CacheTTL = time.Hour
+	}
+	if c.Filters.Antispam.TagScore == 0 && c.Filters.Antispam.QuarantineScore == 0 && c.Filters.Antispam.RejectScore == 0 {
+		c.Filters.Antispam.TagScore = 5
+		c.Filters.Antispam.QuarantineScore = 10
+		c.Filters.Antispam.RejectScore = 15
+	}
+	for i := range c.Filters.DNSBL.Zones {
+		z := &c.Filters.DNSBL.Zones[i]
+		if z.Weight == 0 {
+			z.Weight = 5
+		}
+		if z.Action == "" {
+			z.Action = "score"
+		}
+	}
 }
 
 // CertsDir returns the certificate store root.
@@ -292,9 +384,31 @@ func (c *Config) Validate() error {
 		errs = append(errs, "logging.format must be json or text")
 	}
 	switch strings.ToLower(c.Policy.DefaultAction) {
-	case "accept", "reject", "quarantine", "discard":
+	case "accept", "reject", "quarantine", "discard", "hold", "tag":
 	default:
-		errs = append(errs, "policy.default_action must be accept, reject, quarantine, or discard")
+		errs = append(errs, "policy.default_action must be accept, reject, quarantine, discard, hold, or tag")
+	}
+	for i, rule := range c.Policy.Rules {
+		act := strings.ToLower(rule.Action)
+		switch act {
+		case "accept", "reject", "quarantine", "discard", "hold", "tag":
+		default:
+			errs = append(errs, fmt.Sprintf("policy.rules[%d].action invalid", i))
+		}
+		if rule.Match.SubjectRe != "" {
+			if _, err := regexp.Compile(rule.Match.SubjectRe); err != nil {
+				errs = append(errs, fmt.Sprintf("policy.rules[%d].match.subject_re: %v", i, err))
+			}
+		}
+	}
+	for i, rule := range c.Filters.Antispam.Rules {
+		if rule.Regex == "" {
+			errs = append(errs, fmt.Sprintf("filters.antispam.rules[%d].regex is required", i))
+			continue
+		}
+		if _, err := regexp.Compile(rule.Regex); err != nil {
+			errs = append(errs, fmt.Sprintf("filters.antispam.rules[%d].regex: %v", i, err))
+		}
 	}
 	if c.Server.SMTP.MaxMessageBytes < 0 {
 		errs = append(errs, "server.smtp.max_message_bytes must be >= 0")
@@ -406,5 +520,32 @@ logging:
 
 policy:
   default_action: accept
+  rules: []
+
+filters:
+  dnsbl:
+    enabled: false
+    cache_ttl: 1h
+    whitelist:
+      - 127.0.0.0/8
+      - 10.0.0.0/8
+      - 192.168.0.0/16
+    zones:
+      # - zone: zen.spamhaus.org
+      #   weight: 10
+      #   action: reject
+  antispam:
+    enabled: true
+    tag_score: 5
+    quarantine_score: 10
+    reject_score: 15
+    rules:
+      - id: subject_pharma
+        weight: 5
+        header: Subject
+        regex: "(?i)\\b(viagra|cialis|levitra)\\b"
+      - id: body_casino
+        weight: 3
+        regex: "(?i)\\b(online casino|poker freeroll)\\b"
 `
 }

@@ -1,0 +1,83 @@
+{{define "settings.html"}}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Settings — mgw</title>
+  <link rel="stylesheet" href="/static/street.css">
+  <link rel="stylesheet" href="/static/admin.css">
+</head>
+<body class="admin-body">
+  <div class="wall" aria-hidden="true"><div class="wall__concrete"></div><div class="wall__brick"></div><div class="wall__grain"></div></div>
+  <div class="admin-shell">
+    {{template "nav" .}}
+    <main class="admin-main">
+      {{if .Flash}}<p class="flash flash--ok">{{.Flash}}</p>{{end}}
+      {{if .Error}}<p class="flash flash--err">{{.Error}}</p>{{end}}
+      {{if .Restart}}<p class="flash flash--warn">Нужен перезапуск процесса mgw для применения портов.</p>{{end}}
+      <header class="admin-head"><h1>Settings</h1><p>SMTP, Web, Relay, ACME</p></header>
+      <form method="post" action="/admin/settings" class="stack-form stencil-panel">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <h2 class="stencil-panel__h">SMTP / порты</h2>
+        <label>listen (CSV) <input name="smtp_listen" value="{{join .Cfg.Server.SMTP.Listen ", "}}"></label>
+        <label>implicit TLS listen <input name="implicit_tls" value="{{join .Cfg.Server.SMTP.ImplicitTLSListen ", "}}" placeholder="0.0.0.0:465"></label>
+        <label>hostname <input name="hostname" value="{{.Cfg.Server.SMTP.Hostname}}"></label>
+        <label>max message bytes <input name="max_message_bytes" type="number" value="{{.Cfg.Server.SMTP.MaxMessageBytes}}"></label>
+        <label>max recipients <input name="max_recipients" type="number" value="{{.Cfg.Server.SMTP.MaxRecipients}}"></label>
+        <label class="check"><input type="checkbox" name="smtp_tls" {{if .Cfg.Server.SMTP.TLS}}checked{{end}}> STARTTLS</label>
+
+        <h2 class="stencil-panel__h">Web</h2>
+        <label>listen <input name="web_listen" value="{{.Cfg.Server.Web.Listen}}"></label>
+        <label class="check"><input type="checkbox" name="web_tls" {{if .Cfg.Server.Web.TLS}}checked{{end}}> HTTPS</label>
+
+        <h2 class="stencil-panel__h">Relay</h2>
+        <label>smart host <input name="smart_host" value="{{.Cfg.Relay.SmartHost}}"></label>
+        <label>helo <input name="relay_helo" value="{{.Cfg.Relay.Helo}}"></label>
+        <label>workers <input name="relay_workers" type="number" value="{{.Cfg.Relay.Workers}}"></label>
+
+        <h2 class="stencil-panel__h">Logging / Policy</h2>
+        <label>level
+          <select name="log_level">
+            <option value="debug" {{if eq .Cfg.Logging.Level "debug"}}selected{{end}}>debug</option>
+            <option value="info" {{if eq .Cfg.Logging.Level "info"}}selected{{end}}>info</option>
+            <option value="warn" {{if eq .Cfg.Logging.Level "warn"}}selected{{end}}>warn</option>
+            <option value="error" {{if eq .Cfg.Logging.Level "error"}}selected{{end}}>error</option>
+          </select>
+        </label>
+        <label>format
+          <select name="log_format">
+            <option value="json" {{if eq .Cfg.Logging.Format "json"}}selected{{end}}>json</option>
+            <option value="text" {{if eq .Cfg.Logging.Format "text"}}selected{{end}}>text</option>
+          </select>
+        </label>
+        <label>default action
+          <select name="default_action">
+            <option value="accept" {{if eq .Cfg.Policy.DefaultAction "accept"}}selected{{end}}>accept</option>
+            <option value="reject" {{if eq .Cfg.Policy.DefaultAction "reject"}}selected{{end}}>reject</option>
+            <option value="quarantine" {{if eq .Cfg.Policy.DefaultAction "quarantine"}}selected{{end}}>quarantine</option>
+            <option value="discard" {{if eq .Cfg.Policy.DefaultAction "discard"}}selected{{end}}>discard</option>
+          </select>
+        </label>
+
+        <h2 class="stencil-panel__h">ACME</h2>
+        <label class="check"><input type="checkbox" name="acme_enabled" {{if .Cfg.TLS.ACME.Enabled}}checked{{end}}> enabled</label>
+        <label>email <input name="acme_email" value="{{.Cfg.TLS.ACME.Email}}"></label>
+        <label>domains (CSV) <input name="acme_domains" value="{{join .Cfg.TLS.ACME.Domains ", "}}"></label>
+        <label>http_bind <input name="acme_http_bind" value="{{.Cfg.TLS.ACME.HTTPBind}}"></label>
+        <label>directory <input name="acme_directory" value="{{.Cfg.TLS.ACME.Directory}}"></label>
+        <label>challenge
+          <select name="acme_challenge">
+            <option value="http-01" {{if eq .Cfg.TLS.ACME.Challenge "http-01"}}selected{{end}}>http-01</option>
+            <option value="tls-alpn-01" {{if eq .Cfg.TLS.ACME.Challenge "tls-alpn-01"}}selected{{end}}>tls-alpn-01</option>
+          </select>
+        </label>
+        <label class="check"><input type="checkbox" name="acme_agree" {{if .Cfg.TLS.ACME.AgreeTOS}}checked{{end}}> agree TOS</label>
+
+        <button type="submit">Сохранить</button>
+      </form>
+    </main>
+  </div>
+</body>
+</html>
+{{end}}

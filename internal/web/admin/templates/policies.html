@@ -1,0 +1,95 @@
+{{define "policies.html"}}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Policies — mgw</title>
+  <link rel="stylesheet" href="/static/street.css">
+  <link rel="stylesheet" href="/static/admin.css">
+</head>
+<body class="admin-body">
+  <div class="wall" aria-hidden="true"><div class="wall__concrete"></div><div class="wall__brick"></div><div class="wall__grain"></div></div>
+  <div class="admin-shell">
+    {{template "nav" .}}
+    <main class="admin-main">
+      {{if .Flash}}<p class="flash flash--ok">{{.Flash}}</p>{{end}}
+      {{if .Error}}<p class="flash flash--err">{{.Error}}</p>{{end}}
+      <header class="admin-head"><h1>Policies</h1><p>правила по приоритету · first match wins</p></header>
+
+      <form method="post" class="stack-form stencil-panel">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <input type="hidden" name="action" value="default">
+        <h2 class="stencil-panel__h">Default</h2>
+        <label>default action
+          <select name="default_action">
+            <option value="accept" {{if eq .Cfg.Policy.DefaultAction "accept"}}selected{{end}}>accept</option>
+            <option value="reject" {{if eq .Cfg.Policy.DefaultAction "reject"}}selected{{end}}>reject</option>
+            <option value="quarantine" {{if eq .Cfg.Policy.DefaultAction "quarantine"}}selected{{end}}>quarantine</option>
+            <option value="discard" {{if eq .Cfg.Policy.DefaultAction "discard"}}selected{{end}}>discard</option>
+            <option value="hold" {{if eq .Cfg.Policy.DefaultAction "hold"}}selected{{end}}>hold</option>
+          </select>
+        </label>
+        <button type="submit">Сохранить default</button>
+      </form>
+
+      <section class="stencil-panel">
+        <h2 class="stencil-panel__h">Rules</h2>
+        {{if .Cfg.Policy.Rules}}
+        <ul class="meter">
+          {{range .Cfg.Policy.Rules}}
+          <li>
+            <span>#{{.Priority}} {{.ID}} → {{.Action}} {{if .Reason}}({{.Reason}}){{end}}</span>
+            <strong>
+              <form method="post" style="display:inline">
+                <input type="hidden" name="csrf" value="{{$.CSRF}}">
+                <input type="hidden" name="action" value="toggle">
+                <input type="hidden" name="id" value="{{.ID}}">
+                <button type="submit">{{if .PolicyRuleEnabled}}on{{else}}off{{end}}</button>
+              </form>
+              <form method="post" style="display:inline">
+                <input type="hidden" name="csrf" value="{{$.CSRF}}">
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="id" value="{{.ID}}">
+                <button type="submit">del</button>
+              </form>
+            </strong>
+          </li>
+          {{end}}
+        </ul>
+        {{else}}
+        <p class="muted">правил нет — действует default</p>
+        {{end}}
+      </section>
+
+      <form method="post" class="stack-form stencil-panel">
+        <input type="hidden" name="csrf" value="{{.CSRF}}">
+        <input type="hidden" name="action" value="add">
+        <h2 class="stencil-panel__h">Add rule</h2>
+        <label>id <input name="id" placeholder="block-evil"></label>
+        <label>priority <input name="priority" type="number" value="100"></label>
+        <label>action
+          <select name="rule_action">
+            <option value="reject">reject</option>
+            <option value="quarantine">quarantine</option>
+            <option value="discard">discard</option>
+            <option value="hold">hold</option>
+            <option value="tag">tag</option>
+            <option value="accept">accept</option>
+          </select>
+        </label>
+        <label>reason <input name="reason"></label>
+        <label>tag <input name="tag"></label>
+        <label>from (glob) <input name="from" placeholder="*@evil.example"></label>
+        <label>to (glob) <input name="to"></label>
+        <label>remote_ip / CIDR <input name="remote_ip" placeholder="1.2.3.0/24"></label>
+        <label>helo (glob) <input name="helo"></label>
+        <label>subject_re <input name="subject_re" placeholder="(?i)invoice"></label>
+        <label class="check"><input type="checkbox" name="enabled" checked> enabled</label>
+        <button type="submit">Добавить</button>
+      </form>
+    </main>
+  </div>
+</body>
+</html>
+{{end}}
