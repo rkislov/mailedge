@@ -5,6 +5,8 @@
 **Автор:** Кислов Роман Сергеевич  
 **Лицензия:** [Apache License 2.0](LICENSE)
 
+![Статус-страница mgw](docs/status.png)
+
 ## Этап 1 (текущий)
 
 - SMTP-приём (ESMTP, STARTTLS, опционально SMTPS :465)
