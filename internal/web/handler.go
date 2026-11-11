@@ -10,6 +10,7 @@ import (
 	"github.com/rkislov/mailedge/internal/metrics"
 	"github.com/rkislov/mailedge/internal/queue"
 	"github.com/rkislov/mailedge/internal/version"
+	"github.com/rkislov/mailedge/internal/web/i18n"
 )
 
 //go:embed static/*
@@ -20,6 +21,8 @@ var templatesFS embed.FS
 
 // StatusData is passed to the status page template.
 type StatusData struct {
+	Lang      string
+	ReturnTo  string
 	Version   string
 	Uptime    string
 	Healthy   bool
@@ -40,7 +43,7 @@ type Handler struct {
 
 // NewHandler builds HTTP handlers for the control/web listener.
 func NewHandler(spool *queue.Spool, met *metrics.Registry, hostname string) (*Handler, error) {
-	tmpl, err := template.ParseFS(templatesFS, "templates/*.html")
+	tmpl, err := i18n.Template().ParseFS(templatesFS, "templates/*.html")
 	if err != nil {
 		return nil, err
 	}
@@ -59,6 +62,7 @@ func (h *Handler) Mount(mux *http.ServeMux) {
 	if err == nil {
 		mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(sub))))
 	}
+	mux.HandleFunc("/language", i18n.Switch)
 	mux.HandleFunc("/healthz", h.healthz)
 	mux.HandleFunc("/readyz", h.readyz)
 	mux.HandleFunc("/", h.status)
@@ -88,6 +92,8 @@ func (h *Handler) status(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	data := StatusData{
+		Lang:      i18n.Lang(r),
+		ReturnTo:  r.URL.RequestURI(),
 		Version:   version.Version,
 		Uptime:    time.Since(h.startedAt).Truncate(time.Second).String(),
 		Healthy:   true,
@@ -97,8 +103,10 @@ func (h *Handler) status(w http.ResponseWriter, r *http.Request) {
 		StartedAt: h.startedAt,
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Language", data.Lang)
+	w.Header().Add("Vary", "Cookie")
 	w.Header().Set("Content-Security-Policy", "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'")
 	if err := h.tmpl.ExecuteTemplate(w, "status.html", data); err != nil {
-		http.Error(w, "template error", http.StatusInternalServerError)
+		http.Error(w, i18n.Text(data.Lang, "Page rendering failed."), http.StatusInternalServerError)
 	}
 }

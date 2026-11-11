@@ -1,25 +1,39 @@
 (function () {
-  const ink = "#0c0c0c";
-  const red = "#c43c2c";
-  const paper = "#e8e2d6";
-  const mute = "#6e6a63";
-  const chalk = "#f2efe8";
+  const messages = JSON.parse(document.getElementById("dashboard").dataset.labels);
+  const t = (key) => messages[key] || key;
+  const locale = document.documentElement.lang;
+  const palettes = {
+    dark: {
+      ink: "#e2e8f0", red: "#fb7185", mute: "#94a3b8", green: "#34d399",
+      grid: "rgba(148,163,184,0.08)", border: "rgba(148,163,184,0.25)",
+    },
+    light: {
+      ink: "#1e293b", red: "#be123c", mute: "#475569", green: "#047857",
+      grid: "rgba(71,85,105,0.12)", border: "rgba(71,85,105,0.3)",
+    },
+  };
+  const palette = () => palettes[document.documentElement.dataset.theme] || palettes.dark;
+  const color = (key) => () => palette()[key];
+  const ink = color("ink");
+  const red = color("red");
+  const mute = color("mute");
+  const green = color("green");
+  const grid = color("grid");
 
-  Chart.defaults.color = ink;
-  Chart.defaults.borderColor = "rgba(12,12,12,0.15)";
+  Chart.defaults.borderColor = palette().border;
   Chart.defaults.font.family = "IBM Plex Mono, SF Mono, Menlo, Consolas, monospace";
 
   function fmtBytes(n) {
     if (n < 1024) return n + " B";
     if (n < 1048576) return (n / 1024).toFixed(1) + " KiB";
-    if (n < 1073741824) return (n / 1048576).toFixed(1) + " MiB";
+    if (n < 1073741824) return (n / 1048576).toFixed(1) + " " + t("MiB");
     return (n / 1073741824).toFixed(2) + " GiB";
   }
 
   function labels(hist) {
     return hist.map(function (p) {
       const d = new Date(p.ts * 1000);
-      return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      return d.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
     });
   }
 
@@ -27,10 +41,10 @@
     responsive: true,
     maintainAspectRatio: false,
     animation: false,
-    plugins: { legend: { labels: { boxWidth: 12 } } },
+    plugins: { legend: { labels: { boxWidth: 12, color: ink } } },
     scales: {
-      x: { ticks: { maxTicksLimit: 8, color: mute }, grid: { color: "rgba(12,12,12,0.08)" } },
-      y: { beginAtZero: true, ticks: { color: mute }, grid: { color: "rgba(12,12,12,0.08)" } },
+      x: { ticks: { maxTicksLimit: 8, color: mute }, grid: { color: grid } },
+      y: { beginAtZero: true, ticks: { color: mute }, grid: { color: grid } },
     },
   };
 
@@ -39,10 +53,10 @@
     data: {
       labels: [],
       datasets: [
-        { label: "принято", data: [], borderColor: ink, backgroundColor: "rgba(12,12,12,0.08)", tension: 0.25, fill: true },
-        { label: "доставлено", data: [], borderColor: "#2f6b4f", backgroundColor: "rgba(47,107,79,0.12)", tension: 0.25, fill: true },
-        { label: "отклонено", data: [], borderColor: red, backgroundColor: "rgba(196,60,44,0.12)", tension: 0.25, fill: true },
-        { label: "bounce", data: [], borderColor: mute, backgroundColor: "rgba(110,106,99,0.12)", tension: 0.25, fill: false },
+        { label: t("Received"), data: [], borderColor: ink, backgroundColor: "rgba(148,163,184,0.08)", tension: 0.25, fill: true },
+        { label: t("Delivered"), data: [], borderColor: green, backgroundColor: "rgba(52,211,153,0.12)", tension: 0.25, fill: true },
+        { label: t("Rejected"), data: [], borderColor: red, backgroundColor: "rgba(251,113,133,0.12)", tension: 0.25, fill: true },
+        { label: t("Bounced"), data: [], borderColor: mute, backgroundColor: "rgba(148,163,184,0.12)", tension: 0.25, fill: false },
       ],
     },
     options: commonOpts,
@@ -53,9 +67,9 @@
     data: {
       labels: [],
       datasets: [
-        { label: "recv/s", data: [], backgroundColor: ink },
-        { label: "deliv/s", data: [], backgroundColor: "#2f6b4f" },
-        { label: "reject/s", data: [], backgroundColor: red },
+        { label: t("Received/s"), data: [], backgroundColor: ink },
+        { label: t("Delivered/s"), data: [], backgroundColor: green },
+        { label: t("Rejected/s"), data: [], backgroundColor: red },
       ],
     },
     options: commonOpts,
@@ -66,20 +80,20 @@
     data: {
       labels: [],
       datasets: [
-        { label: "CPU %", data: [], borderColor: red, yAxisID: "y", tension: 0.25, fill: false },
-        { label: "RSS MiB", data: [], borderColor: ink, yAxisID: "y1", tension: 0.25, fill: false },
-        { label: "Heap MiB", data: [], borderColor: mute, yAxisID: "y1", tension: 0.25, borderDash: [4, 4], fill: false },
+        { label: t("CPU %"), data: [], borderColor: red, yAxisID: "y", tension: 0.25, fill: false },
+        { label: t("RSS MiB"), data: [], borderColor: ink, yAxisID: "y1", tension: 0.25, fill: false },
+        { label: t("Heap MiB"), data: [], borderColor: mute, yAxisID: "y1", tension: 0.25, borderDash: [4, 4], fill: false },
       ],
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       animation: false,
-      plugins: { legend: { labels: { boxWidth: 12 } } },
+      plugins: { legend: { labels: { boxWidth: 12, color: ink } } },
       scales: {
-        x: { ticks: { maxTicksLimit: 8, color: mute }, grid: { color: "rgba(12,12,12,0.08)" } },
-        y: { beginAtZero: true, max: 100, position: "left", title: { display: true, text: "CPU %" }, ticks: { color: red }, grid: { color: "rgba(12,12,12,0.08)" } },
-        y1: { beginAtZero: true, position: "right", title: { display: true, text: "MiB" }, ticks: { color: ink }, grid: { drawOnChartArea: false } },
+        x: { ticks: { maxTicksLimit: 8, color: mute }, grid: { color: grid } },
+        y: { beginAtZero: true, max: 100, position: "left", title: { display: true, text: t("CPU %"), color: ink }, ticks: { color: red }, grid: { color: grid } },
+        y1: { beginAtZero: true, position: "right", title: { display: true, text: t("MiB"), color: ink }, ticks: { color: ink }, grid: { drawOnChartArea: false } },
       },
     },
   });
@@ -89,10 +103,10 @@
     data: {
       labels: [],
       datasets: [
-        { label: "incoming", data: [], borderColor: ink, tension: 0.25 },
-        { label: "active", data: [], borderColor: "#2f6b4f", tension: 0.25 },
-        { label: "deferred", data: [], borderColor: red, tension: 0.25 },
-        { label: "bounce", data: [], borderColor: mute, tension: 0.25 },
+        { label: t("Incoming"), data: [], borderColor: ink, tension: 0.25 },
+        { label: t("Active"), data: [], borderColor: green, tension: 0.25 },
+        { label: t("Deferred"), data: [], borderColor: red, tension: 0.25 },
+        { label: t("Bounced"), data: [], borderColor: mute, tension: 0.25 },
       ],
     },
     options: commonOpts,
@@ -140,12 +154,25 @@
 
     const meter = document.getElementById("meter-totals");
     if (meter && live.totals) {
-      meter.innerHTML = Object.keys(live.totals)
-        .sort()
-        .map((k) => "<li><span>" + k + "</span><strong>" + live.totals[k] + "</strong></li>")
-        .join("");
+      const rows = Object.keys(live.totals).sort().map((key) => {
+        const row = document.createElement("li");
+        const label = document.createElement("span");
+        const value = document.createElement("strong");
+        label.textContent = t(key);
+        value.textContent = live.totals[key];
+        row.append(label, value);
+        return row;
+      });
+      meter.replaceChildren(...rows);
     }
   }
+
+  document.addEventListener("mailedge:themechange", () => {
+    Chart.defaults.borderColor = palette().border;
+    for (const chart of [totalsChart, rateChart, sysChart, queueChart]) {
+      chart.update("none");
+    }
+  });
 
   async function tick() {
     try {

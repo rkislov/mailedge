@@ -1,0 +1,11 @@
+{
+  "name": "mailedge-ui",
+  "private": true,
+  "scripts": {
+    "build:css": "tailwindcss -i internal/web/ui/tailwind.css -o internal/web/static/admin.css --minify"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "4.1.18",
+    "tailwindcss": "4.1.18"
+  }
+}

@@ -27,6 +27,7 @@ import (
 	"github.com/rkislov/mailedge/internal/quarantine"
 	"github.com/rkislov/mailedge/internal/queue"
 	"github.com/rkislov/mailedge/internal/version"
+	"github.com/rkislov/mailedge/internal/web/i18n"
 )
 
 //go:embed templates/*.html
@@ -65,17 +66,10 @@ type Handler struct {
 }
 
 func New(deps Deps) (*Handler, error) {
-	funcMap := template.FuncMap{
+	tmpl, err := i18n.Template().Funcs(template.FuncMap{
 		"join": strings.Join,
-		"yesno": func(b bool) string {
-			if b {
-				return "да"
-			}
-			return "нет"
-		},
 		"safe": func(s string) template.HTML { return template.HTML(s) },
-	}
-	tmpl, err := template.New("").Funcs(funcMap).ParseFS(templatesFS, "templates/*.html")
+	}).ParseFS(templatesFS, "templates/*.html")
 	if err != nil {
 		return nil, err
 	}
@@ -136,6 +130,8 @@ func (h *Handler) liveAPI(w http.ResponseWriter, r *http.Request) {
 }
 
 type pageData struct {
+	Lang       string
+	ReturnTo   string
 	Title      string
 	Active     string
 	User       string
@@ -168,6 +164,8 @@ func (h *Handler) base(r *http.Request, title, active string) pageData {
 	cfg := h.deps.Cfg
 	h.deps.CfgMu.RUnlock()
 	pd := pageData{
+		Lang:     i18n.Lang(r),
+		ReturnTo: r.URL.RequestURI(),
 		Title:    title,
 		Active:   active,
 		Version:  version.Version,
@@ -192,11 +190,13 @@ func (h *Handler) base(r *http.Request, title, active string) pageData {
 
 func (h *Handler) render(w http.ResponseWriter, name string, data pageData) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Language", data.Lang)
+	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Security-Policy",
 		"default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'")
 	if err := h.tmpl.ExecuteTemplate(w, name, data); err != nil {
 		h.deps.Log.Error("template", "name", name, "err", err)
-		http.Error(w, "template error", http.StatusInternalServerError)
+		http.Error(w, i18n.Text(data.Lang, "Page rendering failed."), http.StatusInternalServerError)
 	}
 }
 
@@ -219,7 +219,7 @@ func (h *Handler) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 		}
 		if r.Method == http.MethodPost {
 			if r.FormValue("csrf") != sess.CSRFToken {
-				http.Error(w, "CSRF", http.StatusForbidden)
+				http.Error(w, i18n.Text(i18n.Lang(r), "Request verification failed."), http.StatusForbidden)
 				return
 			}
 		}
@@ -267,7 +267,7 @@ func (h *Handler) setup(w http.ResponseWriter, r *http.Request) {
 		user := strings.TrimSpace(r.FormValue("username"))
 		pass := r.FormValue("password")
 		if user == "" || len(pass) < 8 {
-			pd.Error = "логин обязателен, пароль ≥ 8 символов"
+			pd.Error = i18n.Text(pd.Lang, "Username and a password of at least 8 characters are required.")
 			h.render(w, "setup.html", pd)
 			return
 		}
@@ -278,7 +278,7 @@ func (h *Handler) setup(w http.ResponseWriter, r *http.Request) {
 		}
 		u, err := h.deps.Auth.Authenticate(ctx, user, pass)
 		if err != nil {
-			pd.Error = "admin создан, но вход не удался: " + err.Error()
+			pd.Error = i18n.Text(pd.Lang, "Administrator created, but sign-in failed.") + " " + err.Error()
 			h.render(w, "setup.html", pd)
 			return
 		}
@@ -306,7 +306,7 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPost {
 		u, err := h.deps.Auth.Authenticate(ctx, r.FormValue("username"), r.FormValue("password"))
 		if err != nil {
-			pd.Error = "неверный логин или пароль"
+			pd.Error = i18n.Text(pd.Lang, "Invalid username or password.")
 			h.render(w, "login.html", pd)
 			return
 		}
@@ -351,7 +351,7 @@ func (h *Handler) settings(w http.ResponseWriter, r *http.Request) {
 			LogLevel:          r.FormValue("log_level"),
 			LogFormat:         r.FormValue("log_format"),
 			DefaultAction:     r.FormValue("default_action"),
-			SMTPTLS:          r.FormValue("smtp_tls") == "on",
+			SMTPTLS:           r.FormValue("smtp_tls") == "on",
 			WebTLS:            r.FormValue("web_tls") == "on",
 			ACMEEnabled:       r.FormValue("acme_enabled") == "on",
 			ACMEEmail:         r.FormValue("acme_email"),
@@ -396,10 +396,10 @@ func (h *Handler) settings(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		pd = h.base(r, "Settings", "settings")
-		pd.Flash = "сохранено"
+		pd.Flash = i18n.Text(pd.Lang, "Saved.")
 		pd.Restart = restart
 		if restart {
-			pd.Flash = "сохранено — требуется перезапуск для смены портов/TLS web"
+			pd.Flash = i18n.Text(pd.Lang, "Saved. Restart mgw to apply port and web TLS changes.")
 		}
 	}
 	h.render(w, "settings.html", pd)
@@ -423,13 +423,13 @@ func (h *Handler) certsPage(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				pd.Error = err.Error()
 			} else {
-				pd.Flash = "self-signed создан"
+				pd.Flash = i18n.Text(pd.Lang, "Self-signed certificate created.")
 			}
 		case "import":
 			certF, _, err1 := r.FormFile("cert")
 			keyF, _, err2 := r.FormFile("key")
 			if err1 != nil || err2 != nil {
-				pd.Error = "нужны файлы cert и key"
+				pd.Error = i18n.Text(pd.Lang, "Certificate and private key files are required.")
 			} else {
 				cb, _ := io.ReadAll(certF)
 				kb, _ := io.ReadAll(keyF)
@@ -438,7 +438,7 @@ func (h *Handler) certsPage(w http.ResponseWriter, r *http.Request) {
 				if err := h.deps.Certs.Import(cb, kb, "live"); err != nil {
 					pd.Error = err.Error()
 				} else {
-					pd.Flash = "импортировано"
+					pd.Flash = i18n.Text(pd.Lang, "Imported.")
 				}
 			}
 		case "delete":
@@ -446,26 +446,26 @@ func (h *Handler) certsPage(w http.ResponseWriter, r *http.Request) {
 			if err := h.deps.Certs.Delete(name); err != nil {
 				pd.Error = err.Error()
 			} else {
-				pd.Flash = "удалено"
+				pd.Flash = i18n.Text(pd.Lang, "Deleted.")
 			}
 		case "ca_add":
 			f, hdr, err := r.FormFile("ca")
 			if err != nil {
-				pd.Error = "нужен файл УЦ"
+				pd.Error = i18n.Text(pd.Lang, "A CA certificate file is required.")
 			} else {
 				defer f.Close()
 				data, _ := io.ReadAll(f)
 				if err := writeTempAndAddCA(h.deps.Certs, data, hdr.Filename); err != nil {
 					pd.Error = err.Error()
 				} else {
-					pd.Flash = "УЦ добавлен"
+					pd.Flash = i18n.Text(pd.Lang, "CA added.")
 				}
 			}
 		case "ca_remove":
 			if err := h.deps.Certs.RemoveCA(r.FormValue("name")); err != nil {
 				pd.Error = err.Error()
 			} else {
-				pd.Flash = "УЦ удалён"
+				pd.Flash = i18n.Text(pd.Lang, "CA removed.")
 			}
 		case "acme_issue":
 			doms := strings.FieldsFunc(r.FormValue("domains"), func(r rune) bool { return r == ',' || r == ' ' })
@@ -503,34 +503,34 @@ func (h *Handler) domainsPage(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				pd.Error = err.Error()
 			} else {
-				pd.Flash = "домен добавлен"
+				pd.Flash = i18n.Text(pd.Lang, "Domain added.")
 			}
 		case "del_domain":
 			id, _ := strconv.ParseInt(r.FormValue("id"), 10, 64)
 			_ = h.deps.Domains.DeleteDomain(ctx, id)
-			pd.Flash = "удалено"
+			pd.Flash = i18n.Text(pd.Lang, "Deleted.")
 		case "add_route":
 			err := h.deps.Domains.AddRoute(ctx, r.FormValue("domain"), r.FormValue("next_hop"))
 			if err != nil {
 				pd.Error = err.Error()
 			} else {
-				pd.Flash = "маршрут сохранён"
+				pd.Flash = i18n.Text(pd.Lang, "Route saved.")
 			}
 		case "del_route":
 			id, _ := strconv.ParseInt(r.FormValue("id"), 10, 64)
 			_ = h.deps.Domains.DeleteRoute(ctx, id)
-			pd.Flash = "маршрут удалён"
+			pd.Flash = i18n.Text(pd.Lang, "Route deleted.")
 		case "add_alias":
 			err := h.deps.Domains.AddAlias(ctx, r.FormValue("address"), r.FormValue("destinations"))
 			if err != nil {
 				pd.Error = err.Error()
 			} else {
-				pd.Flash = "alias сохранён"
+				pd.Flash = i18n.Text(pd.Lang, "Alias saved.")
 			}
 		case "del_alias":
 			id, _ := strconv.ParseInt(r.FormValue("id"), 10, 64)
 			_ = h.deps.Domains.DeleteAlias(ctx, id)
-			pd.Flash = "alias удалён"
+			pd.Flash = i18n.Text(pd.Lang, "Alias deleted.")
 		}
 	}
 	pd.Domains, _ = h.deps.Domains.ListDomains(ctx)
@@ -549,12 +549,12 @@ func (h *Handler) dkimPage(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				pd.Error = err.Error()
 			} else {
-				pd.Flash = "ключ создан"
+				pd.Flash = i18n.Text(pd.Lang, "Key created.")
 			}
 		case "delete":
 			id, _ := strconv.ParseInt(r.FormValue("id"), 10, 64)
 			_ = h.deps.DKIM.Delete(ctx, id)
-			pd.Flash = "удалено"
+			pd.Flash = i18n.Text(pd.Lang, "Deleted.")
 		}
 	}
 	keys, _ := h.deps.DKIM.List(ctx)
@@ -640,7 +640,7 @@ func (h *Handler) policiesPage(w http.ResponseWriter, r *http.Request) {
 			pd.Error = err.Error()
 		} else {
 			pd = h.base(r, "Policies", "policies")
-			pd.Flash = "сохранено"
+			pd.Flash = i18n.Text(pd.Lang, "Saved.")
 		}
 	}
 	h.render(w, "policies.html", pd)
@@ -799,7 +799,7 @@ func (h *Handler) filtersPage(w http.ResponseWriter, r *http.Request) {
 			pd.Error = err.Error()
 		} else {
 			pd = h.base(r, "Filters", "filters")
-			pd.Flash = "сохранено"
+			pd.Flash = i18n.Text(pd.Lang, "Saved.")
 		}
 	}
 	h.render(w, "filters.html", pd)
@@ -838,13 +838,17 @@ func (h *Handler) intelPage(w http.ResponseWriter, r *http.Request) {
 				pd.Error = err.Error()
 			} else {
 				err := config.Save(h.deps.CfgPath, h.deps.Cfg)
-				h.reloadPolicyFilters()
+				if err != nil {
+					h.deps.Cfg.Filters.Intel = old
+				} else {
+					h.reloadPolicyFilters()
+				}
 				h.deps.CfgMu.Unlock()
 				if err != nil {
 					pd.Error = err.Error()
 				} else {
 					pd = h.base(r, "Threat Intel", "intel")
-					pd.Flash = "настройки сохранены"
+					pd.Flash = i18n.Text(pd.Lang, "Settings saved.")
 				}
 			}
 		case "add":
@@ -858,26 +862,26 @@ func (h *Handler) intelPage(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				pd.Error = err.Error()
 			} else {
-				pd.Flash = "IOC добавлен"
+				pd.Flash = i18n.Text(pd.Lang, "IOC added.")
 			}
 		case "delete":
 			id, _ := strconv.ParseInt(r.FormValue("id"), 10, 64)
 			_ = h.deps.IOC.Delete(ctx, id)
-			pd.Flash = "удалено"
+			pd.Flash = i18n.Text(pd.Lang, "Deleted.")
 		case "toggle":
 			id, _ := strconv.ParseInt(r.FormValue("id"), 10, 64)
 			en := r.FormValue("enabled") == "1"
 			_ = h.deps.IOC.SetEnabled(ctx, id, en)
-			pd.Flash = "обновлено"
+			pd.Flash = i18n.Text(pd.Lang, "Updated.")
 		case "refresh":
 			if h.deps.Feeder == nil {
-				pd.Error = "feeder unavailable"
+				pd.Error = i18n.Text(pd.Lang, "Feed updater unavailable.")
 			} else {
 				n, err := h.deps.Feeder.Refresh(ctx)
 				if err != nil {
 					pd.Error = err.Error()
 				} else {
-					pd.Flash = fmt.Sprintf("обновлено: %d IOC", n)
+					pd.Flash = i18n.Text(pd.Lang, "Updated indicators: %d", n)
 				}
 			}
 		case "import":
@@ -890,7 +894,7 @@ func (h *Handler) intelPage(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					pd.Error = err.Error()
 				} else {
-					pd.Flash = fmt.Sprintf("импорт: %d", n)
+					pd.Flash = i18n.Text(pd.Lang, "Imported indicators: %d", n)
 				}
 			}
 		}

@@ -15,3 +15,5 @@ wallpapers/mobile/@3x/
 wallpapers/tablet/@2x/
 wallpapers/mgw-wallpaper-pack.zip
 wallpapers/desktop/@2x/mgw-svg-*.png
+
+/node_modules/

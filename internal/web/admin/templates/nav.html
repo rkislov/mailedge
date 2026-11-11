@@ -2,16 +2,20 @@
 <aside class="admin-nav">
   <a class="admin-brand" href="/admin">MAIL EDGE <span>mgw</span></a>
   <nav>
-    <a href="/admin" class="{{if eq .Active "dashboard"}}is-active{{end}}">Dashboard</a>
-    <a href="/admin/settings" class="{{if eq .Active "settings"}}is-active{{end}}">Settings</a>
-    <a href="/admin/policies" class="{{if eq .Active "policies"}}is-active{{end}}">Policies</a>
-    <a href="/admin/filters" class="{{if eq .Active "filters"}}is-active{{end}}">Filters</a>
-    <a href="/admin/intel" class="{{if eq .Active "intel"}}is-active{{end}}">Threat Intel</a>
-    <a href="/admin/certs" class="{{if eq .Active "certs"}}is-active{{end}}">Certificates</a>
-    <a href="/admin/domains" class="{{if eq .Active "domains"}}is-active{{end}}">Domains</a>
+    <a href="/admin" class="{{if eq .Active "dashboard"}}is-active{{end}}">{{t $.Lang "Dashboard"}}</a>
+    <a href="/admin/settings" class="{{if eq .Active "settings"}}is-active{{end}}">{{t $.Lang "Settings"}}</a>
+    <a href="/admin/policies" class="{{if eq .Active "policies"}}is-active{{end}}">{{t $.Lang "Policies"}}</a>
+    <a href="/admin/filters" class="{{if eq .Active "filters"}}is-active{{end}}">{{t $.Lang "Filters"}}</a>
+    <a href="/admin/intel" class="{{if eq .Active "intel"}}is-active{{end}}">{{t $.Lang "Threat Intelligence"}}</a>
+    <a href="/admin/certs" class="{{if eq .Active "certs"}}is-active{{end}}">{{t $.Lang "Certificates"}}</a>
+    <a href="/admin/domains" class="{{if eq .Active "domains"}}is-active{{end}}">{{t $.Lang "Domains"}}</a>
     <a href="/admin/dkim" class="{{if eq .Active "dkim"}}is-active{{end}}">DKIM</a>
-    <a href="/">Public status</a>
-    <a href="/logout">Logout{{if .User}} ({{.User}}){{end}}</a>
+    <a href="/">{{t $.Lang "Public status"}}</a>
+    <a href="/logout">{{t $.Lang "Sign out"}}{{if .User}} ({{.User}}){{end}}</a>
   </nav>
+  <div class="preferences">
+    <button type="button" class="theme-toggle" data-theme-toggle data-light-label='{{t $.Lang "Light theme"}}' data-dark-label='{{t $.Lang "Dark theme"}}' hidden>{{t $.Lang "Light theme"}}</button>
+    {{template "language-selector" .}}
+  </div>
 </aside>
 {{end}}

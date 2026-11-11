@@ -22,11 +22,20 @@ func Save(path string, cfg *Config) error {
 			return err
 		}
 	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o644); err != nil {
+	tmp, err := os.CreateTemp(dir, ".mgw-config-*")
+	if err != nil {
 		return err
 	}
-	return os.Rename(tmp, path)
+	defer os.Remove(tmp.Name())
+	_, writeErr := tmp.Write(b)
+	closeErr := tmp.Close()
+	if writeErr != nil {
+		return writeErr
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	return os.Rename(tmp.Name(), path)
 }
 
 // Marshal encodes config to YAML bytes.
@@ -36,27 +45,27 @@ func Marshal(cfg *Config) ([]byte, error) {
 
 // ApplySettings updates operational fields from a settings form payload.
 type SettingsPatch struct {
-	SMTPListen          string
-	ImplicitTLSListen   string
-	Hostname            string
-	MaxMessageBytes     int64
-	MaxRecipients       int
-	SMTPTLS            bool
-	WebListen           string
-	WebTLS              bool
-	SmartHost           string
-	RelayHelo           string
-	RelayWorkers        int
-	LogLevel            string
-	LogFormat           string
-	DefaultAction       string
-	ACMEEnabled         bool
-	ACMEEmail           string
-	ACMEHTTPBind        string
-	ACMEAgreeTOS        bool
-	ACMEDomains         string
-	ACMEDirectory       string
-	ACMEChallenge       string
+	SMTPListen        string
+	ImplicitTLSListen string
+	Hostname          string
+	MaxMessageBytes   int64
+	MaxRecipients     int
+	SMTPTLS           bool
+	WebListen         string
+	WebTLS            bool
+	SmartHost         string
+	RelayHelo         string
+	RelayWorkers      int
+	LogLevel          string
+	LogFormat         string
+	DefaultAction     string
+	ACMEEnabled       bool
+	ACMEEmail         string
+	ACMEHTTPBind      string
+	ACMEAgreeTOS      bool
+	ACMEDomains       string
+	ACMEDirectory     string
+	ACMEChallenge     string
 }
 
 // ApplyPatch mutates cfg with patch values (non-empty / provided).

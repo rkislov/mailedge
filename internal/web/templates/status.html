@@ -1,102 +1,58 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="{{.Lang}}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>mgw — Mail Gateway</title>
-  <link rel="stylesheet" href="/static/street.css">
+  <title>{{t $.Lang "MailEdge — gateway status"}}</title>
+  <script src="/static/theme.js"></script>
+  <link rel="stylesheet" href="/static/admin.css">
 </head>
 <body>
-  <div class="wall" aria-hidden="true">
-    <div class="wall__concrete"></div>
-    <div class="wall__brick"></div>
-    <div class="wall__posters"></div>
-    <div class="wall__spray"></div>
-    <svg class="wall__stencil" viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
-      <!-- rats / messenger silhouette — original stencil, Banksy-inspired language -->
-      <g class="stencil-ink" fill="#0a0a0a" opacity="0.92">
-        <path d="M180 620 c20-40 55-70 95-78 12-2 18 8 14 18-18 42-8 78 28 110 8 7 2 20-8 18-55-10-95-28-129-68z"/>
-        <ellipse cx="250" cy="545" rx="38" ry="22"/>
-        <path d="M220 530 c-8-22-2-40 18-52 6-4 12 2 10 8-4 14 2 24 14 28 4 2 4 10-2 10h-28c-8 0-12-2-12 6z"/>
-        <circle cx="268" cy="538" r="3" fill="#e8e4dc"/>
-        <!-- envelope carried by the figure -->
-        <path d="M290 560 h70 v48 h-70z"/>
-        <path d="M290 560 l35 26 35-26" fill="none" stroke="#0a0a0a" stroke-width="3"/>
-        <path d="M290 560 l35 26 35-26" fill="#c43c2c" opacity="0.85"/>
-      </g>
-      <!-- large torn stencil wordmark backdrop -->
-      <g opacity="0.07" fill="#000">
-        <text x="60" y="220" font-family="Impact, Haettenschweiler, sans-serif" font-size="180" letter-spacing="8">MGW</text>
-      </g>
-      <!-- drip marks -->
-      <g fill="#0a0a0a" opacity="0.55">
-        <circle cx="820" cy="140" r="18"/>
-        <path d="M820 150 c2 40 0 80 4 120 1 12-8 14-10 2-6-40-4-80-6-118z"/>
-        <circle cx="860" cy="160" r="10"/>
-        <path d="M860 168 c1 28 0 55 2 78"/>
-      </g>
-      <!-- spray burst accent -->
-      <g fill="#c43c2c" opacity="0.35">
-        <circle cx="980" cy="520" r="60"/>
-        <circle cx="1010" cy="480" r="18"/>
-        <circle cx="950" cy="560" r="12"/>
-        <circle cx="1040" cy="540" r="8"/>
-      </g>
-      <!-- barcode / CCTV nod — thin stencil lines -->
-      <g fill="#111" opacity="0.25">
-        <rect x="980" y="80" width="6" height="70"/>
-        <rect x="992" y="80" width="3" height="70"/>
-        <rect x="1000" y="80" width="10" height="70"/>
-        <rect x="1016" y="80" width="3" height="70"/>
-        <rect x="1024" y="80" width="7" height="70"/>
-        <rect x="1036" y="80" width="3" height="70"/>
-        <rect x="1044" y="80" width="12" height="70"/>
-      </g>
-    </svg>
-    <div class="wall__grain"></div>
-  </div>
-
-  <main class="stage">
-    <header class="brand">
-      <p class="brand__mark">MAIL EDGE</p>
-      <h1 class="brand__title">mgw</h1>
-      <p class="brand__tag">почтовый шлюз · street-grade filtration</p>
+  <main class="mx-auto grid max-w-6xl gap-5 p-4 sm:p-8">
+    <header class="admin-head flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <h1>MailEdge</h1>
+        <p>{{t $.Lang "Mail gateway status"}}</p>
+      </div>
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="preferences">
+          <button type="button" class="theme-toggle" data-theme-toggle data-light-label='{{t $.Lang "Light theme"}}' data-dark-label='{{t $.Lang "Dark theme"}}' hidden>{{t $.Lang "Light theme"}}</button>
+          {{template "language-selector" .}}
+        </div>
+        <a class="primary-link" href="/admin">{{t $.Lang "Control panel"}}</a>
+      </div>
     </header>
 
-    <section class="stencil-panel" aria-label="Статус">
-      <div class="stencil-panel__tear"></div>
-      {{if .Healthy}}
-      <p class="badge badge--live">ONLINE</p>
-      {{else}}
-      <p class="badge badge--down">DOWN</p>
-      {{end}}
-      <dl class="facts">
-        <div><dt>версия</dt><dd>{{.Version}}</dd></div>
-        <div><dt>хост</dt><dd>{{.Hostname}}</dd></div>
-        <div><dt>аптайм</dt><dd>{{.Uptime}}</dd></div>
-        <div><dt>старт</dt><dd>{{.StartedAt.Format "2006-01-02 15:04 UTC"}}</dd></div>
+    <section class="tile" aria-label='{{t $.Lang "Gateway status"}}'>
+      {{if .Healthy}}<p class="badge badge--live">{{t $.Lang "Online"}}</p>
+      {{else}}<p class="badge badge--down">{{t $.Lang "Unavailable"}}</p>{{end}}
+      <dl class="mt-4 grid grid-cols-2 gap-4 wrap-anywhere md:grid-cols-4">
+        <div><dt class="muted">{{t $.Lang "Version"}}</dt><dd>{{.Version}}</dd></div>
+        <div><dt class="muted">{{t $.Lang "Host"}}</dt><dd>{{.Hostname}}</dd></div>
+        <div><dt class="muted">{{t $.Lang "Uptime"}}</dt><dd>{{.Uptime}}</dd></div>
+        <div><dt class="muted">{{t $.Lang "Started"}}</dt><dd>{{.StartedAt.Format "2006-01-02 15:04 UTC"}}</dd></div>
       </dl>
     </section>
 
-    <section class="stencil-panel stencil-panel--metrics" aria-label="Метрики">
-      <h2 class="stencil-panel__h">счётчики</h2>
-      <ul class="meter">
-        {{range $k, $v := .Metrics}}
-        <li><span>{{$k}}</span><strong>{{$v}}</strong></li>
-        {{end}}
-      </ul>
-      <h2 class="stencil-panel__h">очередь</h2>
-      <ul class="meter">
-        {{range $k, $v := .Queue}}
-        <li><span>{{$k}}</span><strong>{{$v}}</strong></li>
-        {{end}}
-      </ul>
-    </section>
+    <div class="grid gap-5 md:grid-cols-2">
+      <section class="tile">
+        <h2 class="tile-title">{{t $.Lang "Mail counters"}}</h2>
+        <ul class="meter">
+          {{range $k, $v := .Metrics}}<li><span>{{metric $.Lang $k}}</span><strong>{{$v}}</strong></li>{{end}}
+        </ul>
+      </section>
+      <section class="tile">
+        <h2 class="tile-title">{{t $.Lang "Queue"}}</h2>
+        <ul class="meter">
+          {{range $k, $v := .Queue}}<li><span>{{metric $.Lang $k}}</span><strong>{{$v}}</strong></li>{{end}}
+        </ul>
+      </section>
+    </div>
 
-    <footer class="credit">
-      <span>© 2026 Кислов Роман Сергеевич</span>
-      <span>Apache-2.0</span>
-      <span><a href="/admin">/admin</a> · <a href="/healthz">/healthz</a> · <a href="/readyz">/readyz</a></span>
+    <footer class="flex flex-wrap gap-x-4 gap-y-2 px-2 text-xs muted">
+      <span>© 2026 Кислов Роман Сергеевич · Apache-2.0</span>
+      <a class="status-link" href="/healthz">/healthz</a>
+      <a class="status-link" href="/readyz">/readyz</a>
     </footer>
   </main>
 </body>

@@ -1,23 +1,26 @@
 {{define "setup.html"}}
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="{{.Lang}}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Setup — mgw</title>
-  <link rel="stylesheet" href="/static/street.css">
+  <title>{{t $.Lang "Initial setup"}} — mgw</title>
+  <script src="/static/theme.js"></script>
   <link rel="stylesheet" href="/static/admin.css">
 </head>
 <body class="admin-body">
-  <div class="wall" aria-hidden="true"><div class="wall__concrete"></div><div class="wall__brick"></div><div class="wall__grain"></div></div>
   <main class="auth-panel">
-    <h1>mgw setup</h1>
-    <p>Создайте администратора (первый запуск).</p>
+    <div class="preferences">
+      <button type="button" class="theme-toggle" data-theme-toggle data-light-label='{{t $.Lang "Light theme"}}' data-dark-label='{{t $.Lang "Dark theme"}}' hidden>{{t $.Lang "Light theme"}}</button>
+      {{template "language-selector" .}}
+    </div>
+    <h1>{{t $.Lang "Set up MailEdge"}}</h1>
+    <p>{{t $.Lang "Create the first administrator account."}}</p>
     {{if .Error}}<p class="flash flash--err">{{.Error}}</p>{{end}}
     <form method="post" action="/setup" class="stack-form">
-      <label>Логин <input name="username" required autocomplete="username"></label>
-      <label>Пароль <input type="password" name="password" required minlength="8" autocomplete="new-password"></label>
-      <button type="submit">Создать</button>
+      <label>{{t $.Lang "Username"}} <input name="username" required autocomplete="username"></label>
+      <label>{{t $.Lang "Password"}} <input type="password" name="password" required minlength="8" autocomplete="new-password"></label>
+      <button type="submit">{{t $.Lang "Create"}}</button>
     </form>
   </main>
 </body>

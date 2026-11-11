@@ -140,5 +140,5 @@ filters:
       # url: https://threatfox-api.abuse.ch/api/v1/
     qfeed:
       enabled: false
-      url: ""                 # JSON array [{type,value,threat}]
-      auth_header: ""
+      url: "https://feed.kislovs.ru/feeds/v1/iocs.json"                 # JSON array [{type,value,threat}]
+      auth_header: ""          # Security Feed: set MGW_SECURITY_FEED_API_KEY

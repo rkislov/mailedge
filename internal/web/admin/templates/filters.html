@@ -1,194 +1,193 @@
 {{define "filters.html"}}
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="{{.Lang}}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Filters — mgw</title>
-  <link rel="stylesheet" href="/static/street.css">
+  <title>{{t $.Lang "Filters"}} — mgw</title>
+  <script src="/static/theme.js"></script>
   <link rel="stylesheet" href="/static/admin.css">
 </head>
 <body class="admin-body">
-  <div class="wall" aria-hidden="true"><div class="wall__concrete"></div><div class="wall__brick"></div><div class="wall__grain"></div></div>
   <div class="admin-shell">
     {{template "nav" .}}
     <main class="admin-main">
       {{if .Flash}}<p class="flash flash--ok">{{.Flash}}</p>{{end}}
       {{if .Error}}<p class="flash flash--err">{{.Error}}</p>{{end}}
-      <header class="admin-head"><h1>Filters</h1><p>SPF/DKIM/DMARC · DNSBL · antispam · ICAP · sandbox</p></header>
+      <header class="admin-head"><h1>{{t $.Lang "Filters"}}</h1><p>{{t $.Lang "SPF/DKIM/DMARC · DNSBL · antispam · ICAP · sandbox"}}</p></header>
 
-      <nav class="filter-jump" aria-label="разделы">
-        <a href="#dmarc" class="{{if .Cfg.Filters.DMARC.Enabled}}filter-jump__on{{else}}filter-jump__off{{end}}">DMARC {{if .Cfg.Filters.DMARC.Enabled}}on{{else}}off{{end}}</a>
-        <a href="#dnsbl" class="{{if .Cfg.Filters.DNSBL.Enabled}}filter-jump__on{{else}}filter-jump__off{{end}}">DNSBL {{if .Cfg.Filters.DNSBL.Enabled}}on{{else}}off{{end}}</a>
-        <a href="#av" class="{{if .Cfg.Filters.AV.Enabled}}filter-jump__on{{else}}filter-jump__off{{end}}">AV {{if .Cfg.Filters.AV.Enabled}}on{{else}}off{{end}}</a>
-        <a href="#sandbox" class="{{if .Cfg.Filters.Sandbox.Enabled}}filter-jump__on{{else}}filter-jump__off{{end}}">Sandbox {{if .Cfg.Filters.Sandbox.Enabled}}on{{else}}off{{end}}</a>
-        <a href="#antispam" class="{{if .Cfg.Filters.Antispam.Enabled}}filter-jump__on{{else}}filter-jump__off{{end}}">Antispam {{if .Cfg.Filters.Antispam.Enabled}}on{{else}}off{{end}}</a>
+      <nav class="filter-jump" aria-label='{{t $.Lang "Filter sections"}}'>
+        <a href="#dmarc" class="{{if .Cfg.Filters.DMARC.Enabled}}filter-jump__on{{else}}filter-jump__off{{end}}">DMARC {{if .Cfg.Filters.DMARC.Enabled}}{{t $.Lang "On"}}{{else}}{{t $.Lang "Off"}}{{end}}</a>
+        <a href="#dnsbl" class="{{if .Cfg.Filters.DNSBL.Enabled}}filter-jump__on{{else}}filter-jump__off{{end}}">DNSBL {{if .Cfg.Filters.DNSBL.Enabled}}{{t $.Lang "On"}}{{else}}{{t $.Lang "Off"}}{{end}}</a>
+        <a href="#av" class="{{if .Cfg.Filters.AV.Enabled}}filter-jump__on{{else}}filter-jump__off{{end}}">AV {{if .Cfg.Filters.AV.Enabled}}{{t $.Lang "On"}}{{else}}{{t $.Lang "Off"}}{{end}}</a>
+        <a href="#sandbox" class="{{if .Cfg.Filters.Sandbox.Enabled}}filter-jump__on{{else}}filter-jump__off{{end}}">{{t $.Lang "Sandbox"}} {{if .Cfg.Filters.Sandbox.Enabled}}{{t $.Lang "On"}}{{else}}{{t $.Lang "Off"}}{{end}}</a>
+        <a href="#antispam" class="{{if .Cfg.Filters.Antispam.Enabled}}filter-jump__on{{else}}filter-jump__off{{end}}">{{t $.Lang "Antispam"}} {{if .Cfg.Filters.Antispam.Enabled}}{{t $.Lang "On"}}{{else}}{{t $.Lang "Off"}}{{end}}</a>
       </nav>
 
       <div class="filter-grid">
-      <form method="post" id="dmarc" class="stack-form stencil-panel span-2">
+      <form method="post" id="dmarc" class="stack-form tile span-2">
         <input type="hidden" name="csrf" value="{{.CSRF}}">
         <input type="hidden" name="action" value="dmarc">
-        <h2 class="stencil-panel__h">SPF / DKIM / DMARC</h2>
-        <p class="panel-lead">Входящая аутентификация: SPF + DKIM, alignment по DMARC, заголовок Authentication-Results.</p>
+        <h2 class="tile-title">SPF / DKIM / DMARC</h2>
+        <p class="panel-lead">{{t $.Lang "Inbound SPF and DKIM checks, DMARC alignment, and the Authentication-Results header."}}</p>
         <div class="status-row">
-          {{if .Cfg.Filters.DMARC.Enabled}}<span class="pill pill--on">enabled</span>{{else}}<span class="pill pill--off">disabled</span>{{end}}
-          {{if .Cfg.Filters.DMARC.HonorPolicy}}<span class="pill pill--on">honor p=/sp=</span>{{else}}<span class="pill">policy monitor</span>{{end}}
-          {{if .Cfg.Filters.DMARC.AddHeader}}<span class="pill pill--on">auth-results</span>{{else}}<span class="pill pill--off">no header</span>{{end}}
+          {{if .Cfg.Filters.DMARC.Enabled}}<span class="pill pill--on">{{t $.Lang "Enabled"}}</span>{{else}}<span class="pill pill--off">{{t $.Lang "Disabled"}}</span>{{end}}
+          {{if .Cfg.Filters.DMARC.HonorPolicy}}<span class="pill pill--on">{{t $.Lang "Policy enforcement"}}</span>{{else}}<span class="pill">{{t $.Lang "Monitoring only"}}</span>{{end}}
+          {{if .Cfg.Filters.DMARC.AddHeader}}<span class="pill pill--on">{{t $.Lang "Authentication results"}}</span>{{else}}<span class="pill pill--off">{{t $.Lang "No header"}}</span>{{end}}
         </div>
         <div class="form-grid">
-          <label class="check"><input type="checkbox" name="dmarc_enabled" {{if .Cfg.Filters.DMARC.Enabled}}checked{{end}}> enabled</label>
-          <label class="check"><input type="checkbox" name="dmarc_honor_policy" {{if .Cfg.Filters.DMARC.HonorPolicy}}checked{{end}}> honor DMARC policy (p=/sp=)</label>
-          <label class="check span-2"><input type="checkbox" name="dmarc_add_header" {{if .Cfg.Filters.DMARC.AddHeader}}checked{{end}}> Authentication-Results header</label>
+          <label class="check"><input type="checkbox" name="dmarc_enabled" {{if .Cfg.Filters.DMARC.Enabled}}checked{{end}}> {{t $.Lang "Enabled"}}</label>
+          <label class="check"><input type="checkbox" name="dmarc_honor_policy" {{if .Cfg.Filters.DMARC.HonorPolicy}}checked{{end}}> {{t $.Lang "Apply DMARC policy (p=/sp=)"}}</label>
+          <label class="check span-2"><input type="checkbox" name="dmarc_add_header" {{if .Cfg.Filters.DMARC.AddHeader}}checked{{end}}> {{t $.Lang "Authentication-Results header"}}</label>
           <label>authserv-id <input name="dmarc_authserv_id" value="{{.Cfg.Filters.DMARC.AuthservID}}" placeholder="mail.example.com"></label>
-          <label>on fail override
+          <label>{{t $.Lang "Override on failure"}}
             <select name="dmarc_on_fail">
-              <option value="" {{if eq .Cfg.Filters.DMARC.OnFail ""}}selected{{end}}>(policy)</option>
-              <option value="reject" {{if eq .Cfg.Filters.DMARC.OnFail "reject"}}selected{{end}}>reject</option>
-              <option value="quarantine" {{if eq .Cfg.Filters.DMARC.OnFail "quarantine"}}selected{{end}}>quarantine</option>
-              <option value="tag" {{if eq .Cfg.Filters.DMARC.OnFail "tag"}}selected{{end}}>tag</option>
-              <option value="accept" {{if eq .Cfg.Filters.DMARC.OnFail "accept"}}selected{{end}}>accept</option>
+              <option value="" {{if eq .Cfg.Filters.DMARC.OnFail ""}}selected{{end}}>{{t $.Lang "Use published policy"}}</option>
+              <option value="reject" {{if eq .Cfg.Filters.DMARC.OnFail "reject"}}selected{{end}}>{{t $.Lang "Reject"}}</option>
+              <option value="quarantine" {{if eq .Cfg.Filters.DMARC.OnFail "quarantine"}}selected{{end}}>{{t $.Lang "Quarantine"}}</option>
+              <option value="tag" {{if eq .Cfg.Filters.DMARC.OnFail "tag"}}selected{{end}}>{{t $.Lang "Tag"}}</option>
+              <option value="accept" {{if eq .Cfg.Filters.DMARC.OnFail "accept"}}selected{{end}}>{{t $.Lang "Accept"}}</option>
             </select>
           </label>
-          <label>on temperror
+          <label>{{t $.Lang "On temporary error"}}
             <select name="dmarc_on_tempfail">
-              <option value="pass" {{if eq .Cfg.Filters.DMARC.OnTempFail "pass"}}selected{{end}}>pass</option>
-              <option value="quarantine" {{if eq .Cfg.Filters.DMARC.OnTempFail "quarantine"}}selected{{end}}>quarantine</option>
-              <option value="reject" {{if eq .Cfg.Filters.DMARC.OnTempFail "reject"}}selected{{end}}>reject</option>
+              <option value="pass" {{if eq .Cfg.Filters.DMARC.OnTempFail "pass"}}selected{{end}}>{{t $.Lang "Pass through"}}</option>
+              <option value="quarantine" {{if eq .Cfg.Filters.DMARC.OnTempFail "quarantine"}}selected{{end}}>{{t $.Lang "Quarantine"}}</option>
+              <option value="reject" {{if eq .Cfg.Filters.DMARC.OnTempFail "reject"}}selected{{end}}>{{t $.Lang "Reject"}}</option>
             </select>
           </label>
         </div>
-        <button type="submit">Сохранить DMARC</button>
+        <button type="submit">{{t $.Lang "Save DMARC settings"}}</button>
       </form>
 
-      <form method="post" id="dnsbl" class="stack-form stencil-panel">
+      <form method="post" id="dnsbl" class="stack-form tile">
         <input type="hidden" name="csrf" value="{{.CSRF}}">
         <input type="hidden" name="action" value="dnsbl">
-        <h2 class="stencil-panel__h">DNSBL</h2>
-        <label class="check"><input type="checkbox" name="dnsbl_enabled" {{if .Cfg.Filters.DNSBL.Enabled}}checked{{end}}> enabled</label>
-        <label>cache TTL <input name="cache_ttl" value="{{.Cfg.Filters.DNSBL.CacheTTL}}"></label>
-        <label>whitelist (CIDR, по строке)
+        <h2 class="tile-title">DNSBL</h2>
+        <label class="check"><input type="checkbox" name="dnsbl_enabled" {{if .Cfg.Filters.DNSBL.Enabled}}checked{{end}}> {{t $.Lang "Enabled"}}</label>
+        <label>{{t $.Lang "Cache TTL"}} <input name="cache_ttl" value="{{.Cfg.Filters.DNSBL.CacheTTL}}"></label>
+        <label>{{t $.Lang "Allowlist (one CIDR per line)"}}
           <textarea name="whitelist" rows="4">{{join .Cfg.Filters.DNSBL.Whitelist "\n"}}</textarea>
         </label>
-        <label>zones (zone [weight] [action])
+        <label>{{t $.Lang "Zones (zone [weight] [action])"}}
           <textarea name="zones" rows="5" placeholder="zen.spamhaus.org 10 reject">{{range .Cfg.Filters.DNSBL.Zones}}{{.Zone}} {{.Weight}} {{.Action}}
 {{end}}</textarea>
         </label>
-        <button type="submit">Сохранить DNSBL</button>
+        <button type="submit">{{t $.Lang "Save DNSBL settings"}}</button>
       </form>
 
-      <form method="post" id="antispam" class="stack-form stencil-panel">
+      <form method="post" id="antispam" class="stack-form tile">
         <input type="hidden" name="csrf" value="{{.CSRF}}">
         <input type="hidden" name="action" value="antispam">
-        <h2 class="stencil-panel__h">Antispam</h2>
-        <label class="check"><input type="checkbox" name="antispam_enabled" {{if .Cfg.Filters.Antispam.Enabled}}checked{{end}}> enabled</label>
+        <h2 class="tile-title">{{t $.Lang "Antispam"}}</h2>
+        <label class="check"><input type="checkbox" name="antispam_enabled" {{if .Cfg.Filters.Antispam.Enabled}}checked{{end}}> {{t $.Lang "Enabled"}}</label>
         <div class="form-grid">
-          <label>tag score <input name="tag_score" type="number" step="0.1" value="{{.Cfg.Filters.Antispam.TagScore}}"></label>
-          <label>quarantine score <input name="quarantine_score" type="number" step="0.1" value="{{.Cfg.Filters.Antispam.QuarantineScore}}"></label>
-          <label class="span-2">reject score <input name="reject_score" type="number" step="0.1" value="{{.Cfg.Filters.Antispam.RejectScore}}"></label>
+          <label>{{t $.Lang "Tagging threshold"}} <input name="tag_score" type="number" step="0.1" value="{{.Cfg.Filters.Antispam.TagScore}}"></label>
+          <label>{{t $.Lang "Quarantine threshold"}} <input name="quarantine_score" type="number" step="0.1" value="{{.Cfg.Filters.Antispam.QuarantineScore}}"></label>
+          <label class="span-2">{{t $.Lang "Rejection threshold"}} <input name="reject_score" type="number" step="0.1" value="{{.Cfg.Filters.Antispam.RejectScore}}"></label>
         </div>
-        <button type="submit">Сохранить пороги</button>
+        <button type="submit">{{t $.Lang "Save thresholds"}}</button>
       </form>
 
-      <form method="post" id="av" class="stack-form stencil-panel">
+      <form method="post" id="av" class="stack-form tile">
         <input type="hidden" name="csrf" value="{{.CSRF}}">
         <input type="hidden" name="action" value="av">
-        <h2 class="stencil-panel__h">AV / ICAP</h2>
-        <label class="check"><input type="checkbox" name="av_enabled" {{if .Cfg.Filters.AV.Enabled}}checked{{end}}> enabled</label>
-        <label>timeout <input name="av_timeout" value="{{.Cfg.Filters.AV.Timeout}}"></label>
-        <label>on unavailable
+        <h2 class="tile-title">AV / ICAP</h2>
+        <label class="check"><input type="checkbox" name="av_enabled" {{if .Cfg.Filters.AV.Enabled}}checked{{end}}> {{t $.Lang "Enabled"}}</label>
+        <label>{{t $.Lang "Timeout"}} <input name="av_timeout" value="{{.Cfg.Filters.AV.Timeout}}"></label>
+        <label>{{t $.Lang "When unavailable"}}
           <select name="av_on_unavailable">
-            <option value="pass" {{if eq .Cfg.Filters.AV.OnUnavailable "pass"}}selected{{end}}>pass</option>
-            <option value="quarantine" {{if eq .Cfg.Filters.AV.OnUnavailable "quarantine"}}selected{{end}}>quarantine</option>
-            <option value="reject" {{if eq .Cfg.Filters.AV.OnUnavailable "reject"}}selected{{end}}>reject</option>
+            <option value="pass" {{if eq .Cfg.Filters.AV.OnUnavailable "pass"}}selected{{end}}>{{t $.Lang "Pass through"}}</option>
+            <option value="quarantine" {{if eq .Cfg.Filters.AV.OnUnavailable "quarantine"}}selected{{end}}>{{t $.Lang "Quarantine"}}</option>
+            <option value="reject" {{if eq .Cfg.Filters.AV.OnUnavailable "reject"}}selected{{end}}>{{t $.Lang "Reject"}}</option>
           </select>
         </label>
-        <label>on infected
+        <label>{{t $.Lang "On infection"}}
           <select name="av_on_infected">
-            <option value="reject" {{if eq .Cfg.Filters.AV.OnInfected "reject"}}selected{{end}}>reject</option>
-            <option value="quarantine" {{if eq .Cfg.Filters.AV.OnInfected "quarantine"}}selected{{end}}>quarantine</option>
-            <option value="tag" {{if eq .Cfg.Filters.AV.OnInfected "tag"}}selected{{end}}>tag</option>
+            <option value="reject" {{if eq .Cfg.Filters.AV.OnInfected "reject"}}selected{{end}}>{{t $.Lang "Reject"}}</option>
+            <option value="quarantine" {{if eq .Cfg.Filters.AV.OnInfected "quarantine"}}selected{{end}}>{{t $.Lang "Quarantine"}}</option>
+            <option value="tag" {{if eq .Cfg.Filters.AV.OnInfected "tag"}}selected{{end}}>{{t $.Lang "Tag"}}</option>
           </select>
         </label>
-        <label>servers (addr service [tls], по строке)
+        <label>{{t $.Lang "Servers (address service [tls], one per line)"}}
           <textarea name="av_servers" rows="3" placeholder="127.0.0.1:1344 avscan">{{range .Cfg.Filters.AV.Servers}}{{.Addr}} {{.Service}}{{if .TLS}} tls{{end}}
 {{end}}</textarea>
         </label>
-        <button type="submit">Сохранить AV</button>
+        <button type="submit">{{t $.Lang "Save antivirus settings"}}</button>
       </form>
 
-      <form method="post" id="sandbox" class="stack-form stencil-panel">
+      <form method="post" id="sandbox" class="stack-form tile">
         <input type="hidden" name="csrf" value="{{.CSRF}}">
         <input type="hidden" name="action" value="sandbox">
-        <h2 class="stencil-panel__h">Sandbox</h2>
-        <label class="check"><input type="checkbox" name="sandbox_enabled" {{if .Cfg.Filters.Sandbox.Enabled}}checked{{end}}> enabled</label>
+        <h2 class="tile-title">{{t $.Lang "Sandbox"}}</h2>
+        <label class="check"><input type="checkbox" name="sandbox_enabled" {{if .Cfg.Filters.Sandbox.Enabled}}checked{{end}}> {{t $.Lang "Enabled"}}</label>
         <label>URL <input name="sandbox_url" value="{{.Cfg.Filters.Sandbox.URL}}" placeholder="https://sandbox/api/v1/submit"></label>
-        <label>API key <input name="sandbox_api_key" value="{{.Cfg.Filters.Sandbox.APIKey}}" type="password" autocomplete="off"></label>
+        <label>{{t $.Lang "API key"}} <input name="sandbox_api_key" value="{{.Cfg.Filters.Sandbox.APIKey}}" type="password" autocomplete="off"></label>
         <div class="form-grid">
-          <label>timeout <input name="sandbox_timeout" value="{{.Cfg.Filters.Sandbox.Timeout}}"></label>
-          <label>cache TTL <input name="sandbox_cache_ttl" value="{{.Cfg.Filters.Sandbox.CacheTTL}}"></label>
-          <label>max bytes <input name="sandbox_max_bytes" type="number" value="{{.Cfg.Filters.Sandbox.MaxBytes}}"></label>
-          <label class="check"><input type="checkbox" name="sandbox_attachments_only" {{if .Cfg.Filters.Sandbox.AttachmentsOnly}}checked{{end}}> attachments only</label>
+          <label>{{t $.Lang "Timeout"}} <input name="sandbox_timeout" value="{{.Cfg.Filters.Sandbox.Timeout}}"></label>
+          <label>{{t $.Lang "Cache TTL"}} <input name="sandbox_cache_ttl" value="{{.Cfg.Filters.Sandbox.CacheTTL}}"></label>
+          <label>{{t $.Lang "Size limit in bytes"}} <input name="sandbox_max_bytes" type="number" value="{{.Cfg.Filters.Sandbox.MaxBytes}}"></label>
+          <label class="check"><input type="checkbox" name="sandbox_attachments_only" {{if .Cfg.Filters.Sandbox.AttachmentsOnly}}checked{{end}}> {{t $.Lang "Attachments only"}}</label>
         </div>
-        <label>on unavailable
+        <label>{{t $.Lang "When unavailable"}}
           <select name="sandbox_on_unavailable">
-            <option value="pass" {{if eq .Cfg.Filters.Sandbox.OnUnavailable "pass"}}selected{{end}}>pass</option>
-            <option value="quarantine" {{if eq .Cfg.Filters.Sandbox.OnUnavailable "quarantine"}}selected{{end}}>quarantine</option>
-            <option value="reject" {{if eq .Cfg.Filters.Sandbox.OnUnavailable "reject"}}selected{{end}}>reject</option>
+            <option value="pass" {{if eq .Cfg.Filters.Sandbox.OnUnavailable "pass"}}selected{{end}}>{{t $.Lang "Pass through"}}</option>
+            <option value="quarantine" {{if eq .Cfg.Filters.Sandbox.OnUnavailable "quarantine"}}selected{{end}}>{{t $.Lang "Quarantine"}}</option>
+            <option value="reject" {{if eq .Cfg.Filters.Sandbox.OnUnavailable "reject"}}selected{{end}}>{{t $.Lang "Reject"}}</option>
           </select>
         </label>
-        <label>on malicious
+        <label>{{t $.Lang "On malicious verdict"}}
           <select name="sandbox_on_malicious">
-            <option value="reject" {{if eq .Cfg.Filters.Sandbox.OnMalicious "reject"}}selected{{end}}>reject</option>
-            <option value="quarantine" {{if eq .Cfg.Filters.Sandbox.OnMalicious "quarantine"}}selected{{end}}>quarantine</option>
-            <option value="tag" {{if eq .Cfg.Filters.Sandbox.OnMalicious "tag"}}selected{{end}}>tag</option>
+            <option value="reject" {{if eq .Cfg.Filters.Sandbox.OnMalicious "reject"}}selected{{end}}>{{t $.Lang "Reject"}}</option>
+            <option value="quarantine" {{if eq .Cfg.Filters.Sandbox.OnMalicious "quarantine"}}selected{{end}}>{{t $.Lang "Quarantine"}}</option>
+            <option value="tag" {{if eq .Cfg.Filters.Sandbox.OnMalicious "tag"}}selected{{end}}>{{t $.Lang "Tag"}}</option>
           </select>
         </label>
-        <label>on suspicious
+        <label>{{t $.Lang "On suspicious verdict"}}
           <select name="sandbox_on_suspicious">
-            <option value="tag" {{if eq .Cfg.Filters.Sandbox.OnSuspicious "tag"}}selected{{end}}>tag</option>
-            <option value="quarantine" {{if eq .Cfg.Filters.Sandbox.OnSuspicious "quarantine"}}selected{{end}}>quarantine</option>
-            <option value="pass" {{if eq .Cfg.Filters.Sandbox.OnSuspicious "pass"}}selected{{end}}>pass</option>
+            <option value="tag" {{if eq .Cfg.Filters.Sandbox.OnSuspicious "tag"}}selected{{end}}>{{t $.Lang "Tag"}}</option>
+            <option value="quarantine" {{if eq .Cfg.Filters.Sandbox.OnSuspicious "quarantine"}}selected{{end}}>{{t $.Lang "Quarantine"}}</option>
+            <option value="pass" {{if eq .Cfg.Filters.Sandbox.OnSuspicious "pass"}}selected{{end}}>{{t $.Lang "Pass through"}}</option>
           </select>
         </label>
-        <button type="submit">Сохранить sandbox</button>
+        <button type="submit">{{t $.Lang "Save sandbox settings"}}</button>
       </form>
 
-      <section class="stencil-panel span-2">
-        <h2 class="stencil-panel__h">Antispam rules</h2>
+      <section class="tile span-2">
+        <h2 class="tile-title">{{t $.Lang "Antispam rules"}}</h2>
         {{if .Cfg.Filters.Antispam.Rules}}
         <ul class="meter">
           {{range .Cfg.Filters.Antispam.Rules}}
           <li>
-            <span>{{.ID}} w={{.Weight}} {{if .Header}}hdr={{.Header}}{{else}}body{{end}} {{.Regex}}</span>
+            <span>{{.ID}} {{t $.Lang "Weight:"}}{{.Weight}} {{if .Header}}{{t $.Lang "Header:"}}{{.Header}}{{else}}{{t $.Lang "Body"}}{{end}} {{.Regex}}</span>
             <strong>
               <form method="post" class="inline">
                 <input type="hidden" name="csrf" value="{{$.CSRF}}">
                 <input type="hidden" name="action" value="del_rule">
                 <input type="hidden" name="id" value="{{.ID}}">
-                <button type="submit">del</button>
+                <button type="submit">{{t $.Lang "Delete"}}</button>
               </form>
             </strong>
           </li>
           {{end}}
         </ul>
         {{else}}
-        <p class="muted">правил нет</p>
+        <p class="muted">{{t $.Lang "No rules"}}</p>
         {{end}}
       </section>
 
-      <form method="post" class="stack-form stencil-panel span-2">
+      <form method="post" class="stack-form tile span-2">
         <input type="hidden" name="csrf" value="{{.CSRF}}">
         <input type="hidden" name="action" value="add_rule">
-        <h2 class="stencil-panel__h">Add antispam rule</h2>
+        <h2 class="tile-title">{{t $.Lang "Add antispam rule"}}</h2>
         <div class="form-grid">
-          <label>id <input name="id" required></label>
-          <label>weight <input name="weight" type="number" step="0.1" value="3"></label>
-          <label>header (пусто = body) <input name="header" placeholder="Subject"></label>
-          <label>regex <input name="regex" required placeholder="(?i)viagra"></label>
-          <label class="check"><input type="checkbox" name="uri"> URI-only</label>
+          <label>{{t $.Lang "ID"}} <input name="id" required></label>
+          <label>{{t $.Lang "Weight"}} <input name="weight" type="number" step="0.1" value="3"></label>
+          <label>{{t $.Lang "Header (blank for message body)"}} <input name="header" placeholder="Subject"></label>
+          <label>{{t $.Lang "Regular expression"}} <input name="regex" required placeholder="(?i)viagra"></label>
+          <label class="check"><input type="checkbox" name="uri"> {{t $.Lang "URIs only"}}</label>
         </div>
-        <button type="submit">Добавить</button>
+        <button type="submit">{{t $.Lang "Add"}}</button>
       </form>
       </div>
     </main>

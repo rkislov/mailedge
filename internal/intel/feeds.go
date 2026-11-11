@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -81,21 +83,22 @@ func (f *Feeder) Refresh(ctx context.Context) (int, error) {
 		return 0, nil
 	}
 	total := 0
+	var refreshErr error
 	if cfg.ThreatFox.Enabled {
 		n, err := f.pullThreatFox(ctx, cfg.ThreatFox)
 		if err != nil {
-			return total, fmt.Errorf("threatfox: %w", err)
+			refreshErr = fmt.Errorf("threatfox: %w", err)
 		}
 		total += n
 	}
 	if cfg.QFeed.Enabled && cfg.QFeed.URL != "" {
 		n, err := f.pullQFeed(ctx, cfg.QFeed)
 		if err != nil {
-			return total, fmt.Errorf("qfeed: %w", err)
+			refreshErr = errors.Join(refreshErr, fmt.Errorf("qfeed: %w", err))
 		}
 		total += n
 	}
-	return total, nil
+	return total, refreshErr
 }
 
 type threatFoxReq struct {
@@ -106,10 +109,10 @@ type threatFoxReq struct {
 type threatFoxResp struct {
 	QueryStatus string `json:"query_status"`
 	Data        []struct {
-		IOC      string `json:"ioc"`
-		IOCType  string `json:"ioc_type"`
-		Threat   string `json:"threat_type"`
-		Malware  string `json:"malware"`
+		IOC              string `json:"ioc"`
+		IOCType          string `json:"ioc_type"`
+		Threat           string `json:"threat_type"`
+		Malware          string `json:"malware"`
 		MalwarePrintable string `json:"malware_printable"`
 	} `json:"data"`
 }
@@ -191,7 +194,19 @@ func (f *Feeder) pullQFeed(ctx context.Context, c config.QFeedConfig) (int, erro
 			req.Header.Set("Authorization", c.AuthHeader)
 		}
 	}
-	resp, err := f.client.Do(req)
+	if c.URL == config.SecurityFeedURL && c.AuthHeader == "" {
+		key := strings.TrimSpace(os.Getenv("MGW_SECURITY_FEED_API_KEY"))
+		if key == "" {
+			return 0, fmt.Errorf("set MGW_SECURITY_FEED_API_KEY or configure an X-Api-Key header")
+		}
+		req.Header.Set("X-Api-Key", key)
+	}
+	// Keep subscription credentials on the configured endpoint.
+	client := *f.client
+	client.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return 0, err
 	}

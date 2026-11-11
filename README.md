@@ -10,15 +10,19 @@
 
 **Автор:** Кислов Роман Сергеевич  
 **Лицензия:** [Apache License 2.0](LICENSE)  
-**Релиз:** [v0.3.0](https://github.com/rkislov/mailedge/releases/tag/v0.3.0)
+**Релиз:** [v0.4.0](https://github.com/rkislov/mailedge/releases/tag/v0.4.0)
 
-| | |
-|:---:|:---:|
-| ![Статус-страница](docs/status.png) | ![Dashboard с графиками](docs/dashboard.png) |
+Интерфейс использует Tailwind CSS. Светлая и тёмная темы и переключатель RU / EN доступны на всех страницах. Стили встроены в бинарник. После правки шаблонов или стилей выполните `npm ci && npm run build:css`.
 
-| | |
-|:---:|:---:|
-| ![Filters — DMARC / DNSBL / AV](docs/filters.png) | ![Threat Intel](docs/intel.png) |
+## Скриншоты
+
+![Дашборд MailEdge с графиками почты, ресурсов и очереди](docs/dashboard.png)
+
+[Дашборд в светлой теме](docs/dashboard-light.png) · [Страница статуса](docs/status.png) · [Настройки фильтров](docs/filters.png) · [Threat Intel и Security Feed](docs/intel.png)
+
+## Security Feed
+
+В **Threat Intel → Settings** включите фильтр и источник **Security Feed / QFeed**. URL по умолчанию — `https://feed.kislovs.ru/feeds/v1/iocs.json`. Передайте ключ подписки процессу `mgw` через `MGW_SECURITY_FEED_API_KEY` или введите `X-Api-Key: <ключ>` в поле «Заголовок подписки». Сохраните настройки и нажмите **Refresh feeds now**. При использовании единого фида прямой ThreatFox можно отключить.
 
 ## Wallpaper pack
 

@@ -55,7 +55,7 @@ type TLSConfig struct {
 	// Dir — корень хранилища сертификатов (по умолчанию $data_dir/certs).
 	Dir string `yaml:"dir"`
 	// Default — имя профиля сертификата для SMTP/Web.
-	Default string `yaml:"default"`
+	Default  string                 `yaml:"default"`
 	Profiles map[string]CertProfile `yaml:"profiles"`
 	CA       CAConfig               `yaml:"ca"`
 	ACME     ACMEConfig             `yaml:"acme"`
@@ -137,13 +137,13 @@ type PolicyConfig struct {
 
 // PolicyRule is one ordered policy decision.
 type PolicyRule struct {
-	ID       string         `yaml:"id"`
-	Enabled  *bool          `yaml:"enabled"`
-	Priority int            `yaml:"priority"`
-	Action   string         `yaml:"action"` // accept, reject, quarantine, discard, tag, hold
-	Reason   string         `yaml:"reason"`
-	Tag      string         `yaml:"tag"`
-	Match    PolicyMatch    `yaml:"match"`
+	ID       string      `yaml:"id"`
+	Enabled  *bool       `yaml:"enabled"`
+	Priority int         `yaml:"priority"`
+	Action   string      `yaml:"action"` // accept, reject, quarantine, discard, tag, hold
+	Reason   string      `yaml:"reason"`
+	Tag      string      `yaml:"tag"`
+	Match    PolicyMatch `yaml:"match"`
 }
 
 // PolicyRuleEnabled returns whether the rule is active (default true).
@@ -162,7 +162,7 @@ type PolicyMatch struct {
 	Helo      string `yaml:"helo"`       // exact or *glob
 	SubjectRe string `yaml:"subject_re"` // regex
 	MinSize   int64  `yaml:"min_size"`
-	MaxSize   int64  `yaml:"max_size"` // 0 = no max
+	MaxSize   int64  `yaml:"max_size"`  // 0 = no max
 	Direction string `yaml:"direction"` // inbound|outbound|internal (optional hint)
 }
 
@@ -224,25 +224,25 @@ type ICAPServer struct {
 
 // SandboxConfig is an HTTP sandbox / detonation adapter.
 type SandboxConfig struct {
-	Enabled       bool          `yaml:"enabled"`
-	URL           string        `yaml:"url"`
-	APIKey        string        `yaml:"api_key"`
-	Timeout       time.Duration `yaml:"timeout"`
-	CacheTTL      time.Duration `yaml:"cache_ttl"`
-	OnUnavailable string        `yaml:"on_unavailable"` // pass | quarantine | reject
-	OnMalicious   string        `yaml:"on_malicious"`   // reject | quarantine | tag
-	OnSuspicious  string        `yaml:"on_suspicious"`  // tag | quarantine | pass
-	MaxBytes      int64         `yaml:"max_bytes"`
-	AttachmentsOnly bool        `yaml:"attachments_only"`
+	Enabled         bool          `yaml:"enabled"`
+	URL             string        `yaml:"url"`
+	APIKey          string        `yaml:"api_key"`
+	Timeout         time.Duration `yaml:"timeout"`
+	CacheTTL        time.Duration `yaml:"cache_ttl"`
+	OnUnavailable   string        `yaml:"on_unavailable"` // pass | quarantine | reject
+	OnMalicious     string        `yaml:"on_malicious"`   // reject | quarantine | tag
+	OnSuspicious    string        `yaml:"on_suspicious"`  // tag | quarantine | pass
+	MaxBytes        int64         `yaml:"max_bytes"`
+	AttachmentsOnly bool          `yaml:"attachments_only"`
 }
 
 // IntelConfig is Threat Intelligence / IOC matching.
 type IntelConfig struct {
-	Enabled         bool              `yaml:"enabled"`
-	OnHit           string            `yaml:"on_hit"` // reject | quarantine | tag
-	RefreshInterval time.Duration     `yaml:"refresh_interval"`
-	ThreatFox       ThreatFoxConfig   `yaml:"threatfox"`
-	QFeed           QFeedConfig       `yaml:"qfeed"`
+	Enabled         bool            `yaml:"enabled"`
+	OnHit           string          `yaml:"on_hit"` // reject | quarantine | tag
+	RefreshInterval time.Duration   `yaml:"refresh_interval"`
+	ThreatFox       ThreatFoxConfig `yaml:"threatfox"`
+	QFeed           QFeedConfig     `yaml:"qfeed"`
 }
 
 type ThreatFoxConfig struct {
@@ -250,6 +250,8 @@ type ThreatFoxConfig struct {
 	URL     string `yaml:"url"`
 	Days    int    `yaml:"days"`
 }
+
+const SecurityFeedURL = "https://feed.kislovs.ru/feeds/v1/iocs.json"
 
 type QFeedConfig struct {
 	Enabled    bool   `yaml:"enabled"`
@@ -455,6 +457,9 @@ func applyDefaults(c *Config) {
 	}
 	if c.Filters.Intel.RefreshInterval == 0 {
 		c.Filters.Intel.RefreshInterval = time.Hour
+	}
+	if strings.TrimSpace(c.Filters.Intel.QFeed.URL) == "" {
+		c.Filters.Intel.QFeed.URL = SecurityFeedURL
 	}
 	if c.Filters.Intel.ThreatFox.URL == "" {
 		c.Filters.Intel.ThreatFox.URL = "https://threatfox-api.abuse.ch/api/v1/"
@@ -743,6 +748,6 @@ filters:
       days: 1
     qfeed:
       enabled: false
-      url: ""
+      url: "https://feed.kislovs.ru/feeds/v1/iocs.json"
 `
 }
